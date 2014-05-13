@@ -140,7 +140,6 @@ func Init(mode, importPath, srcPath string) {
 
 	TemplatePaths = []string{
 		ViewsPath,
-		path.Join(RevelPath, "templates"),
 	}
 
 	// Load default app.conf
