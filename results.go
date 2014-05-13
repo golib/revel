@@ -119,6 +119,7 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 	defer func() {
 		if err := recover(); err != nil {
 			ERROR.Println(err)
+
 			PlaintextErrorResult{fmt.Errorf("Template Execution Panic in %s:\n%s",
 				r.Template.Name(), err)}.Apply(req, resp)
 		}
@@ -137,7 +138,7 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 	// error pages distorted by HTML already written)
 	if chunked && !DevMode {
 		resp.WriteHeader(http.StatusOK, "text/html; charset=utf-8")
-		r.render(req, resp, out)
+		r.renderTemplate(req, resp, out)
 		return
 	}
 
@@ -145,16 +146,16 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 	// rendering the template.  If not, then copy it into the response buffer.
 	// Otherwise, template render errors may result in unpredictable HTML (and
 	// would carry a 200 status code)
-	var b bytes.Buffer
-	r.render(req, resp, &b)
+	var buf bytes.Buffer
+	r.renderTemplate(req, resp, &buf)
 	if !chunked {
-		resp.Out.Header().Set("Content-Length", strconv.Itoa(b.Len()))
+		resp.Out.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 	}
 	resp.WriteHeader(http.StatusOK, "text/html; charset=utf-8")
-	b.WriteTo(out)
+	buf.WriteTo(out)
 }
 
-func (r *RenderTemplateResult) render(req *Request, resp *Response, wr io.Writer) {
+func (r *RenderTemplateResult) renderTemplate(req *Request, resp *Response, wr io.Writer) {
 	err := r.Template.Render(wr, r.RenderArgs)
 	if err == nil {
 		return
@@ -170,15 +171,18 @@ func (r *RenderTemplateResult) render(req *Request, resp *Response, wr io.Writer
 			templateContent = templateSet.Content()
 		}
 	}
+
 	compileError := &Error{
 		Title:       "Template Execution Error",
+		Line:        line,
 		Path:        templateName,
 		Description: description,
-		Line:        line,
 		SourceLines: templateContent,
 	}
-	resp.Status = 500
+
 	ERROR.Printf("Template Execution Error (in %s): %s", templateName, description)
+
+	resp.Status = 500
 	ErrorResult{r.RenderArgs, compileError}.Apply(req, resp)
 }
 
