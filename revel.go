@@ -42,7 +42,8 @@ var (
 	DevMode bool   // if true, RunMode is a development mode.
 
 	// Revel installation details
-	RevelPath string // e.g. "/Users/robfig/gocode/src/revel"
+	RevelPath         string // e.g. "/Users/robfig/gocode/src/revel"
+	RevelTemplatePath string // e.g. "/Users/robfig/gocode/src/revel/templates"
 
 	// Where to look for templates and configuration.
 	// Ordered by priority.  (Earlier paths take precedence over later paths.)
@@ -127,6 +128,7 @@ func Init(mode, importPath, srcPath string) {
 	}
 
 	RevelPath = path.Join(revelSourcePath, filepath.FromSlash(REVEL_IMPORT_PATH))
+	RevelTemplatePath = path.Join(RevelPath, "templates")
 	BasePath = path.Join(SourcePath, filepath.FromSlash(importPath))
 	AppPath = path.Join(BasePath, "app")
 	ViewsPath = path.Join(AppPath, "views")
