@@ -196,17 +196,20 @@ func (r RenderHtmlResult) Apply(req *Request, resp *Response) {
 }
 
 type RenderJsonResult struct {
-	obj      interface{}
+	json     interface{}
 	callback string
 }
 
 func (r RenderJsonResult) Apply(req *Request, resp *Response) {
-	var b []byte
-	var err error
+	var (
+		b   []byte
+		err error
+	)
+
 	if Config.BoolDefault("results.pretty", false) {
-		b, err = json.MarshalIndent(r.obj, "", "  ")
+		b, err = json.MarshalIndent(r.json, "", "  ")
 	} else {
-		b, err = json.Marshal(r.obj)
+		b, err = json.Marshal(r.json)
 	}
 
 	if err != nil {
