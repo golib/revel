@@ -18,6 +18,16 @@ type Result interface {
 	Apply(req *Request, resp *Response)
 }
 
+// This result is used when the template loader or error template is not available.
+type PlaintextErrorResult struct {
+	Error error
+}
+
+func (r PlaintextErrorResult) Apply(req *Request, resp *Response) {
+	resp.WriteHeader(http.StatusInternalServerError, "text/plain; charset=utf-8")
+	resp.Out.Write([]byte(r.Error.Error()))
+}
+
 // This result handles all kinds of error codes (500, 404, ..).
 // It renders the relevant error page (errors/CODE.format, e.g. errors/500.json).
 // If RunMode is "dev", this results in a friendly error page.
@@ -96,16 +106,6 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 
 	resp.WriteHeader(status, contentType)
 	buf.WriteTo(resp.Out)
-}
-
-type PlaintextErrorResult struct {
-	Error error
-}
-
-// This method is used when the template loader or error template is not available.
-func (r PlaintextErrorResult) Apply(req *Request, resp *Response) {
-	resp.WriteHeader(http.StatusInternalServerError, "text/plain; charset=utf-8")
-	resp.Out.Write([]byte(r.Error.Error()))
 }
 
 // Action methods return this result to request a template be rendered.
