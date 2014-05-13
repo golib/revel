@@ -1,6 +1,7 @@
 package revel
 
 import (
+	"errors"
 	"fmt"
 	"html"
 	"html/template"
@@ -296,92 +297,32 @@ func (loader *TemplateLoader) Refresh() *Error {
 				return nil
 			}
 
-			var templateString string
+			fileName := path[len(basePath)+1:]
 
-			// addTemplate allows the same template to be added multiple
-			// times with different template names.
-			addTemplate := func(name string) (err error) {
-				// Convert template names to use forward slashes, even on Windows.
-				if os.PathSeparator == '\\' {
-					name = strings.Replace(name, `\`, `/`, -1)
-				}
-
-				// If we already loaded a template of this name, skip it.
-				if _, ok := loader.templatePaths[name]; ok {
-					return nil
-				}
-				loader.templatePaths[name] = path
-
-				// Load the file if we haven't already
-				if templateString == "" {
-					fileBytes, err := ioutil.ReadFile(path)
-					if err != nil {
-						ERROR.Println("[ioutil.ReadFile] ", path, " : ", err.Error())
-						return nil
-					}
-
-					templateString = string(fileBytes)
-				}
-
-				// Create the template set.
-				// This panics if any of the funcs do not conform to expectations,
-				// so we wrap it in a func and handle those panics by serving an error page.
-				var (
-					templateSet *template.Template
-					engineErr   *Error
-				)
-
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							engineErr = &Error{
-								Title:       "Panic (Template Loader)",
-								Description: fmt.Sprintln(err),
-							}
-						}
-					}()
-
-					templateSet, err = loader.engine.Parse(templateString)
-					if err == nil {
-						loader.AddTemplate(name, templateSet)
-					}
-				}()
-
-				if engineErr != nil {
-					return engineErr
-				}
-
-				return err
+			// If we already loaded a template of file name, skip it.
+			if _, ok := loader.templatePaths[fileName]; ok {
+				return nil
 			}
 
-			templateName := path[len(basePath)+1:]
-			// Lower case the file name for case-insensitive matching
-			lowerCaseTemplateName := strings.ToLower(templateName)
-
-			err = addTemplate(templateName)
-			err = addTemplate(lowerCaseTemplateName)
-
-			// Store / report the first error encountered.
-			if err != nil && loader.engineError == nil {
-				_, line, description := parseTemplateError(err)
-
-				loader.engineError = &Error{
-					Title:       "Template Compilation Error",
-					Line:        line,
-					Path:        templateName,
-					Description: description,
-					SourceLines: strings.Split(templateString, "\n"),
-				}
-
-				ERROR.Printf("Template compilation error (In %s around line %d):\n%s", templateName, line, description)
+			// Load the file
+			// return file error if exists
+			fileBytes, fileErr := ioutil.ReadFile(path)
+			if fileErr != nil {
+				ERROR.Println("[ioutil.ReadFile] ", path, " : ", err.Error())
+				return fileErr
 			}
 
-			return nil
+			loader.templatePaths[fileName] = path
+
+			return loader.Register(fileName, string(fileBytes))
 		})
 
 		// If there was an error with the Funcs, set it and return immediately.
 		if walkErr != nil {
-			loader.engineError = walkErr.(*Error)
+			loader.engineError = &Error{
+				Title:       "Template Refresh Error",
+				Description: fmt.Sprintln(walkErr),
+			}
 
 			return loader.engineError
 		}
@@ -395,9 +336,69 @@ func (loader *TemplateLoader) Refresh() *Error {
 // The name is the template's path relative to a template loader root.
 //
 // An error is returned if TemplateLoader has already been executed.
-func (loader *TemplateLoader) AddTemplate(name string, tmpl *template.Template) error {
-	_, err := loader.templateSet.AddParseTree(name, tmpl.Tree)
-	return err
+func (loader *TemplateLoader) Register(name, content string) error {
+	// Convert template name to use forward slashes, even on Windows.
+	if os.PathSeparator == '\\' {
+		name = strings.Replace(name, `\`, `/`, -1)
+	}
+
+	// Create the template set.
+	// This panics if any of the funcs do not conform to expectations,
+	// so we wrap it in a func and handle those panics by serving an error page.
+	register := func(name, content string) error {
+		var (
+			templateSet *template.Template
+			templateErr error
+		)
+
+		func() {
+			defer func() {
+				if panicErr := recover(); panicErr != nil {
+					templateErr = errors.New(fmt.Sprintln(panicErr))
+
+					loader.engineError = &Error{
+						Title:       "Template Compilation Panic",
+						Description: fmt.Sprintln(panicErr),
+					}
+				}
+			}()
+
+			templateSet, templateErr = loader.engine.Parse(content)
+			if templateErr == nil {
+				loader.templateSet.AddParseTree(name, templateSet.Tree)
+			} else {
+				_, line, description := parseTemplateError(templateErr)
+
+				ERROR.Printf("Template compilation error (In %s around line %d):\n%s", name, line, description)
+
+				// Store / report the first parse error encountered.
+				if loader.engineError == nil {
+					loader.engineError = &Error{
+						Title:       "Template Compilation Error",
+						Line:        line,
+						Path:        name,
+						Description: description,
+						SourceLines: strings.Split(content, "\n"),
+					}
+				}
+			}
+
+			return
+		}()
+
+		return templateErr
+	}
+
+	if err := register(name, content); err != nil {
+		return err
+	}
+
+	// Lower case the file name for case-insensitive matching
+	if err := register(strings.ToLower(name), content); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Return the Template with the given name.
