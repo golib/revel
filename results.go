@@ -27,22 +27,6 @@ type ErrorResult struct {
 }
 
 func (r ErrorResult) Apply(req *Request, resp *Response) {
-	format := req.Format
-	status := resp.Status
-	if status == 0 {
-		status = http.StatusInternalServerError
-	}
-
-	contentType := ContentTypeByFilename("xxx." + format)
-	if contentType == DefaultFileContentType {
-		contentType = "text/plain"
-	}
-
-	// Get the error template.
-	var err error
-	templatePath := fmt.Sprintf("errors/%d.%s", status, format)
-	tmpl, err := MainTemplateLoader.Template(templatePath)
-
 	// This func shows a plaintext error message, in case the template rendering
 	// doesn't work.
 	showPlaintext := func(err error) {
@@ -51,28 +35,46 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 			r.Error, err)}.Apply(req, resp)
 	}
 
-	if tmpl == nil {
+	format := req.Format
+	status := resp.Status
+	if status == 0 {
+		status = http.StatusInternalServerError
+	}
+
+	contentType := ContentTypeByFilename("revel." + format)
+	if contentType == DefaultFileContentType {
+		contentType = "text/plain"
+	}
+
+	// Get the error template.
+	var err error
+	templateName := fmt.Sprintf("errors/%d.%s", status, format)
+	templateSet, err := RevelTemplateLoader.Template(templateName)
+
+	if templateSet == nil {
 		if err == nil {
-			err = fmt.Errorf("Couldn't find template %s", templatePath)
+			err = fmt.Errorf("Couldn't find template %s", templateName)
 		}
+
 		showPlaintext(err)
 		return
 	}
 
 	// If it's not a revel error, wrap it in one.
 	var revelError *Error
-	switch e := r.Error.(type) {
+	switch err := r.Error.(type) {
 	case *Error:
-		revelError = e
+		revelError = err
 	case error:
 		revelError = &Error{
 			Title:       "Server Error",
-			Description: e.Error(),
+			Description: err.Error(),
 		}
-	}
-
-	if revelError == nil {
-		panic("no error provided")
+	default:
+		revelError = &Error{
+			Title:       "Unknown Server Error",
+			Description: "Unknown server error triggered",
+		}
 	}
 
 	if r.RenderArgs == nil {
@@ -83,8 +85,8 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 	r.RenderArgs["Router"] = MainRouter
 
 	// Render it.
-	var b bytes.Buffer
-	err = tmpl.Render(&b, r.RenderArgs)
+	var buf bytes.Buffer
+	err = templateSet.Render(&buf, r.RenderArgs)
 
 	// If there was an error, print it in plain text.
 	if err != nil {
@@ -93,7 +95,7 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 	}
 
 	resp.WriteHeader(status, contentType)
-	b.WriteTo(resp.Out)
+	buf.WriteTo(resp.Out)
 }
 
 type PlaintextErrorResult struct {
@@ -164,8 +166,8 @@ func (r *RenderTemplateResult) render(req *Request, resp *Response, wr io.Writer
 		templateName = r.Template.Name()
 		templateContent = r.Template.Content()
 	} else {
-		if tmpl, err := MainTemplateLoader.Template(templateName); err == nil {
-			templateContent = tmpl.Content()
+		if templateSet, err := MainTemplateLoader.Template(templateName); err == nil {
+			templateContent = templateSet.Content()
 		}
 	}
 	compileError := &Error{
