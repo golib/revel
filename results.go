@@ -186,6 +186,15 @@ func (r *RenderTemplateResult) renderTemplate(req *Request, resp *Response, wr i
 	ErrorResult{r.RenderArgs, compileError}.Apply(req, resp)
 }
 
+type RenderTextResult struct {
+	text string
+}
+
+func (r RenderTextResult) Apply(req *Request, resp *Response) {
+	resp.WriteHeader(http.StatusOK, "text/plain; charset=utf-8")
+	resp.Out.Write([]byte(r.text))
+}
+
 type RenderHtmlResult struct {
 	html string
 }
@@ -252,15 +261,6 @@ func (r RenderXmlResult) Apply(req *Request, resp *Response) {
 
 	resp.WriteHeader(http.StatusOK, "application/xml; charset=utf-8")
 	resp.Out.Write(b)
-}
-
-type RenderTextResult struct {
-	text string
-}
-
-func (r RenderTextResult) Apply(req *Request, resp *Response) {
-	resp.WriteHeader(http.StatusOK, "text/plain; charset=utf-8")
-	resp.Out.Write([]byte(r.text))
 }
 
 type ContentDisposition string
