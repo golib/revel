@@ -45,6 +45,12 @@ func (c Hotels) Plaintext() Result {
 	return c.RenderText("Hello, World!")
 }
 
+func (c Hotels) Error() Result {
+	c.RenderArgs["error"] = true
+
+	return c.Render()
+}
+
 func (c Hotels) Panic() Result {
 	c.RenderArgs["panic"] = true
 
@@ -138,6 +144,9 @@ func fakeTestApp() {
 			},
 			&MethodType{
 				Name: "Plaintext",
+			},
+			&MethodType{
+				Name: "Error",
 			},
 			&MethodType{
 				Name: "Panic",

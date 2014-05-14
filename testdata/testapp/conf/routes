@@ -13,6 +13,7 @@ POST    /register                               Application.SaveUser
 GET     /hotels                                 Hotels.Index
 GET     /hotels/list                            Hotels.List
 GET     /hotels/greeting                        Hotels.Plaintext
+GET     /hotels/error                           Hotels.Error
 GET     /hotels/panic                           Hotels.Panic
 GET     /hotels/:id                             Hotels.Show
 GET     /hotels/:id/booking                     Hotels.Book
