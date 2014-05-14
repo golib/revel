@@ -40,7 +40,7 @@ func BenchmarkServeStatic(b *testing.B) {
 }
 
 func benchmarkRequest(b *testing.B, req *http.Request) {
-	startFakeBookingApp()
+	fakeTestApp()
 	b.ResetTimer()
 	resp := httptest.NewRecorder()
 	for i := 0; i < b.N; i++ {
@@ -50,7 +50,7 @@ func benchmarkRequest(b *testing.B, req *http.Request) {
 
 // Test that the booking app can be successfully run for a test.
 func TestFakeServer(t *testing.T) {
-	startFakeBookingApp()
+	fakeTestApp()
 
 	resp := httptest.NewRecorder()
 

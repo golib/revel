@@ -356,7 +356,7 @@ func BenchmarkLargeRouter(b *testing.B) {
 }
 
 func BenchmarkRouterFilter(b *testing.B) {
-	startFakeBookingApp()
+	fakeTestApp()
 	controllers := []*Controller{
 		{Request: NewRequest(showRequest)},
 		{Request: NewRequest(staticRequest)},
