@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+var (
+	showRequest, _      = http.NewRequest("GET", "/hotels/3", nil)
+	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
+	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
+	plaintextRequest, _ = http.NewRequest("GET", "/hotels/greeting", nil)
+)
+
 // This tries to benchmark the usual request-serving pipeline to get an overall
 // performance metric.
 //
@@ -94,10 +101,3 @@ func getFileSize(t *testing.T, name string) int64 {
 	}
 	return fi.Size()
 }
-
-var (
-	showRequest, _      = http.NewRequest("GET", "/hotels/3", nil)
-	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
-	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
-	plaintextRequest, _ = http.NewRequest("GET", "/hotels", nil)
-)
