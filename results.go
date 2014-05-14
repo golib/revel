@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"strconv"
 	"time"
 )
@@ -321,46 +319,13 @@ type RedirectToActionResult struct {
 }
 
 func (r *RedirectToActionResult) Apply(req *Request, resp *Response) {
-	url, err := getRedirectUrl(r.val)
+	url, err := FindResourceUrl(r.val)
 	if err != nil {
 		ERROR.Println("Couldn't resolve redirect:", err.Error())
 		ErrorResult{Error: err}.Apply(req, resp)
 		return
 	}
-	resp.Out.Header().Set("Location", url)
-	resp.WriteHeader(http.StatusFound, "")
-}
 
-func getRedirectUrl(item interface{}) (string, error) {
-	// Handle strings
-	if url, ok := item.(string); ok {
-		return url, nil
-	}
-
-	// Handle funcs
-	val := reflect.ValueOf(item)
-	typ := reflect.TypeOf(item)
-	if typ.Kind() == reflect.Func && typ.NumIn() > 0 {
-		// Get the Controller Method
-		recvType := typ.In(0)
-		method := FindMethod(recvType, val)
-		if method == nil {
-			return "", errors.New("couldn't find method")
-		}
-
-		// Construct the action string (e.g. "Controller.Method")
-		if recvType.Kind() == reflect.Ptr {
-			recvType = recvType.Elem()
-		}
-		action := recvType.Name() + "." + method.Name
-		actionDef := MainRouter.Reverse(action, make(map[string]string))
-		if actionDef == nil {
-			return "", errors.New("no route for action " + action)
-		}
-
-		return actionDef.String(), nil
-	}
-
-	// Out of guesses
-	return "", errors.New("didn't recognize type: " + typ.String())
+	rurl := &RedirectToUrlResult{url: url}
+	rurl.Apply(req, resp)
 }
