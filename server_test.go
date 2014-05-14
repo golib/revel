@@ -14,6 +14,8 @@ var (
 	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
 	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
 	plaintextRequest, _ = http.NewRequest("GET", "/hotels/greeting", nil)
+	errorRequest, _     = http.NewRequest("GET", "/hotels/error", nil)
+	panicRequest, _     = http.NewRequest("GET", "/hotels/panic", nil)
 )
 
 // This tries to benchmark the usual request-serving pipeline to get an overall
