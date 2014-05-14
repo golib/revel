@@ -41,7 +41,13 @@ func (c Hotels) Book(id int) Result {
 	return c.RenderJson(hotel)
 }
 
+func (c Hotels) Plaintext() Result {
+	return c.RenderText("Hello, World!")
+}
+
 func (c Hotels) Panic() Result {
+	c.RenderArgs["panic"] = true
+
 	return c.Render()
 }
 
@@ -78,6 +84,12 @@ func fakeTestApp() {
 	ERROR = TRACE
 
 	runStartupHooks()
+
+	// Template render panic helper
+	TemplateHelpers["triggerPanic"] = func() error {
+		panic("Render panic test")
+		return nil
+	}
 
 	MainRouter = NewRouter("")
 	if routeBytes, err := ioutil.ReadFile(filepath.Join(BasePath, "conf", "routes")); err == nil {
@@ -123,6 +135,12 @@ func fakeTestApp() {
 						"hotel",
 					},
 				},
+			},
+			&MethodType{
+				Name: "Plaintext",
+			},
+			&MethodType{
+				Name: "Panic",
 			},
 		})
 
