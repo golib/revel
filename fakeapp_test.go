@@ -21,8 +21,13 @@ type Hotels struct {
 	*Controller
 }
 
-type Static struct {
-	*Controller
+func (c Hotels) Index() Result {
+	bookings := []*Hotel{
+		&Hotel{1, "A Hotel", "300 Main St.", "New York", "NY", "10010", "USA", 300},
+		&Hotel{2, "B Hotel", "200 Main St.", "San Francisco", "SF", "30010", "USA", 420},
+	}
+
+	return c.Render(bookings)
 }
 
 func (c Hotels) Show(id int) Result {
@@ -36,8 +41,12 @@ func (c Hotels) Book(id int) Result {
 	return c.RenderJson(hotel)
 }
 
-func (c Hotels) Index() Result {
-	return c.RenderText("Hello, World!")
+func (c Hotels) Panic() Result {
+	return c.Render()
+}
+
+type Static struct {
+	*Controller
 }
 
 func (c Static) Serve(prefix, filepath string) Result {
@@ -55,11 +64,12 @@ func (c Static) Serve(prefix, filepath string) Result {
 		WARN.Printf("Problem opening file (%s): %s ", fname, err)
 		return c.NotFound("This was found but not sure why we couldn't open it.")
 	}
+
 	return c.RenderFile(file, "")
 }
 
-func startFakeBookingApp() {
-	Init("prod", "github.com/golib/revel/samples/booking", "")
+func fakeTestApp() {
+	Init("prod", "github.com/golib/revel/testdata/testapp", "")
 
 	// Disable logging.
 	TRACE = log.New(ioutil.Discard, "", 0)
@@ -70,10 +80,13 @@ func startFakeBookingApp() {
 	runStartupHooks()
 
 	MainRouter = NewRouter("")
-	routesFile, _ := ioutil.ReadFile(filepath.Join(BasePath, "conf", "routes"))
-	MainRouter.Routes, _ = parseRoutes("", "", string(routesFile), false)
-	MainRouter.updateTree()
-	MainTemplateLoader = NewTemplateLoader("default", []string{ViewsPath, path.Join(RevelPath, "templates")})
+	if routeBytes, err := ioutil.ReadFile(filepath.Join(BasePath, "conf", "routes")); err == nil {
+		MainRouter.Routes, _ = parseRoutes("", "", string(routeBytes), false)
+		MainRouter.updateTree()
+	}
+	RevelTemplateLoader = NewTemplateLoader("default", []string{RevelTemplatePath})
+	RevelTemplateLoader.Refresh()
+	MainTemplateLoader = NewTemplateLoader("default", []string{ViewsPath})
 	MainTemplateLoader.Refresh()
 
 	RegisterController((*Hotels)(nil),
@@ -93,6 +106,9 @@ func startFakeBookingApp() {
 				Args: []*MethodArg{
 					{"id", reflect.TypeOf((*int)(nil))},
 				},
+			},
+			&MethodType{
+				Name: "Panic",
 			},
 		})
 
