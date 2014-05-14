@@ -230,16 +230,19 @@ func (r RenderJsonResult) Apply(req *Request, resp *Response) {
 }
 
 type RenderXmlResult struct {
-	obj interface{}
+	xml interface{}
 }
 
 func (r RenderXmlResult) Apply(req *Request, resp *Response) {
-	var b []byte
-	var err error
+	var (
+		b   []byte
+		err error
+	)
+
 	if Config.BoolDefault("results.pretty", false) {
-		b, err = xml.MarshalIndent(r.obj, "", "  ")
+		b, err = xml.MarshalIndent(r.xml, "", "  ")
 	} else {
-		b, err = xml.Marshal(r.obj)
+		b, err = xml.Marshal(r.xml)
 	}
 
 	if err != nil {
