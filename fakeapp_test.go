@@ -93,22 +93,36 @@ func fakeTestApp() {
 		[]*MethodType{
 			&MethodType{
 				Name: "Index",
+				Args: []*MethodArg{},
+				RenderArgNames: map[int][]string{
+					30: []string{
+						"bookings",
+					},
+				},
 			},
 			&MethodType{
 				Name: "Show",
 				Args: []*MethodArg{
-					{"id", reflect.TypeOf((*int)(nil))},
+					&MethodArg{Name: "id", Type: reflect.TypeOf((*int)(nil))},
 				},
-				RenderArgNames: map[int][]string{31: []string{"title", "hotel"}},
+				RenderArgNames: map[int][]string{
+					36: []string{
+						"title",
+						"hotel",
+					},
+				},
 			},
 			&MethodType{
 				Name: "Book",
 				Args: []*MethodArg{
-					{"id", reflect.TypeOf((*int)(nil))},
+					&MethodArg{Name: "id", Type: reflect.TypeOf((*int)(nil))},
 				},
-			},
-			&MethodType{
-				Name: "Panic",
+				RenderArgNames: map[int][]string{
+					163: []string{
+						"title",
+						"hotel",
+					},
+				},
 			},
 		})
 
