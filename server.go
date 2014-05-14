@@ -71,6 +71,7 @@ func Run(port int) {
 	}
 
 	RevelTemplateLoader = NewTemplateLoader("default", []string{RevelTemplatePath})
+	RevelTemplateLoader.Refresh()
 
 	MainTemplateLoader = NewTemplateLoader(Config.StringDefault("template.engine", "default"), TemplatePaths)
 	MainTemplateLoader.SetConfig(Config)
