@@ -166,7 +166,14 @@ func (c *Controller) Redirect(val interface{}, args ...interface{}) Result {
 		return &RedirectToUrlResult{fmt.Sprintf(url, args...)}
 	}
 
-	return &RedirectToActionResult{val}
+	actionArgs := map[string]string{}
+	if len(args) > 0 {
+		if arg, ok := args[0].(map[string]string); ok {
+			actionArgs = arg
+		}
+	}
+
+	return &RedirectToActionResult{val, actionArgs}
 }
 
 // Forbidden returns an HTTP 403 Forbidden response whose body is the
