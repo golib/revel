@@ -65,7 +65,7 @@ func FindMethod(recvType reflect.Type, funcVal reflect.Value) *reflect.Method {
 }
 
 // return the url of resource
-func FindResourceUrl(resource interface{}) (string, error) {
+func FindResourceUrl(resource interface{}, args ...map[string]string) (string, error) {
 	// Handle strings
 	if url, ok := resource.(string); ok {
 		return url, nil
@@ -88,8 +88,13 @@ func FindResourceUrl(resource interface{}) (string, error) {
 			recvType = recvType.Elem()
 		}
 
+		recvArgs := map[string]string{}
+		if len(args) > 0 {
+			recvArgs = args[0]
+		}
+
 		action := recvType.Name() + "." + method.Name
-		actionDef := MainRouter.Reverse(action, make(map[string]string))
+		actionDef := MainRouter.Reverse(action, recvArgs)
 		if actionDef == nil {
 			return "", errors.New("couldn't find route for action " + action)
 		}
