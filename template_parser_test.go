@@ -14,6 +14,22 @@ var (
 	yield_or_block_var = "{{.revel_726576656c2fa43a078b3629f7fd390756c3edf515b0ae9b9b}}"
 )
 
+func TestTemplateReader(t *testing.T) {
+	tr := NewTemplateReader(layout)
+	tr.Parse()
+
+	if !strings.Contains(tr.Template, yield_or_block_var) {
+		t.Errorf("Expected block contains `%s`, but got %s", yield_or_block_var, tr.Template)
+	}
+
+	tr = NewTemplateReader(content)
+	tr.Parse()
+
+	if strings.Contains(tr.Template, yield_or_block_var) {
+		t.Errorf("Expected block doesn't contain `%s`, but got %s", yield_or_block_var, tr.Template)
+	}
+}
+
 func TestTemplateReaderWithYields(t *testing.T) {
 	tr := NewTemplateReader(layout)
 	tr.Parse()
@@ -45,6 +61,10 @@ func TestTemplateReaderWithBlocks(t *testing.T) {
 
 	if len(tr.Yields) != 3 {
 		t.Errorf("Expected invoking yield 3 times, but got %d", len(tr.Yields))
+	}
+
+	if _, ok := tr.Yields[yield_or_block]; !ok {
+		t.Errorf("Expected contains yield `%s`, but nothing found", yield_or_block)
 	}
 
 	if len(tr.Blocks) != 3 {

@@ -17,8 +17,9 @@ var (
 )
 
 type TemplateReader struct {
-	Yields map[string]string
-	Blocks map[string]string
+	Template string            // of default block
+	Yields   map[string]string // of all yields / blocks keys
+	Blocks   map[string]string // of all blocks key => template
 
 	fp     *os.File
 	reader *bufio.Reader
@@ -33,8 +34,9 @@ func NewTemplateReader(file string) *TemplateReader {
 	}
 
 	return &TemplateReader{
-		Yields: map[string]string{},
-		Blocks: map[string]string{},
+		Template: "",
+		Yields:   map[string]string{},
+		Blocks:   map[string]string{},
 
 		fp:     fp,
 		reader: bufio.NewReader(fp),
@@ -95,9 +97,12 @@ func (tr *TemplateReader) Parse() {
 	}
 
 	// default block
+	tr.Template = strings.Join(lines, "\n")
+
+	// trick of default block
 	byName := tr.byname([]string{""})
 	tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
-	tr.Blocks[byName] = strings.Join(lines, "\n")
+	tr.Blocks[byName] = tr.Template
 	return
 }
 
