@@ -47,6 +47,7 @@ func (c Hotels) Plaintext() Result {
 
 func (c Hotels) Error() Result {
 	c.RenderArgs["error"] = true
+	c.RenderArgs["NilPointer"] = nil
 
 	return c.Render()
 }
