@@ -71,9 +71,12 @@ func (c *Controller) Render(extraRenderArgs ...interface{}) Result {
 
 // A less magical way to render a template.
 // Renders the given template, using the current RenderArgs.
-func (c *Controller) RenderTemplate(templatePath string) Result {
+func (c *Controller) RenderTemplate(name string) Result {
+	// always using lowercase
+	name = strings.ToLower(name)
+
 	// Get the Template.
-	template, err := MainTemplateLoader.Template(templatePath)
+	template, err := MainTemplateLoader.Template(name)
 	if err != nil {
 		return c.RenderError(err)
 	}
