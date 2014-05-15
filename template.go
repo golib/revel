@@ -396,6 +396,12 @@ func (loader *TemplateLoader) Register(name, file string) error {
 		return err
 	}
 
+	// register all of parsed blocks
+	// NOTE: it's also includes the tr.Template treated as default block
+	for name, block := range tr.Blocks {
+		register(name, block)
+	}
+
 	return nil
 }
 
