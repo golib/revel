@@ -36,6 +36,19 @@ func RegisterController(c interface{}, methods []*MethodType) {
 	}
 }
 
+// Controller layout interface
+// It allows user custom their controller's layout easy.
+//
+// definition:
+//  map[string]string{
+//    "Action": "action layout",  // highest
+//    "POST:Action": "method action layout",  // medinum
+//    "*": "default layout",  // lowerest
+//  }
+type ControllerLayouter interface {
+	Layout() map[string]string
+}
+
 type Controller struct {
 	Name          string          // The controller name, e.g. "Application"
 	Type          *ControllerType // A description of the controller type.
