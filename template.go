@@ -219,7 +219,8 @@ type TemplateLoader struct {
 	// This is the set of all templates under views
 	templateSet *template.Template
 	// Map from template name to the path from whence it was loaded.
-	templatePaths map[string]string
+	templatePaths  map[string]string
+	templateYields map[string]map[string]string
 }
 
 func NewTemplateLoader(name string, paths []string) *TemplateLoader {
@@ -268,9 +269,11 @@ func (loader *TemplateLoader) SetConfig(mergedConfig *MergedConfig) {
 func (loader *TemplateLoader) Refresh() *Error {
 	TRACE.Printf("Refreshing templates from %s", loader.paths)
 
+	// reset internal stats
 	loader.engineError = nil
 	loader.templateSet = template.New("").Funcs(TemplateHelpers) // fix go template error
 	loader.templatePaths = map[string]string{}
+	loader.templateYields = map[string]map[string]string{}
 
 	// Walk through the template loader's paths and build up a template set.
 	for _, basePath := range loader.paths {
@@ -339,6 +342,7 @@ func (loader *TemplateLoader) Register(name, file string) error {
 	if os.PathSeparator == '\\' {
 		name = strings.Replace(name, `\`, `/`, -1)
 	}
+	lowercaseName := strings.ToLower(name)
 
 	// Create the template set.
 	// This panics if any of the funcs do not conform to expectations,
@@ -392,9 +396,12 @@ func (loader *TemplateLoader) Register(name, file string) error {
 	}
 
 	// Lower case the file name for case-insensitive matching
-	if err := register(strings.ToLower(name), tr.Template); err != nil {
+	if err := register(lowercaseName, tr.Template); err != nil {
 		return err
 	}
+
+	// relates yields with template lowercase name
+	loader.templateYields[lowercaseName] = tr.Yields
 
 	// register all of parsed blocks
 	// NOTE: it's also includes the tr.Template treated as default block
