@@ -15,14 +15,14 @@ var (
 )
 
 func TestTemplateReader(t *testing.T) {
-	tr := NewTemplateReader(layout)
+	tr, _ := NewTemplateReader(layout)
 	tr.Parse()
 
 	if !strings.Contains(tr.Template, yield_or_block_var) {
 		t.Errorf("Expected block contains `%s`, but got %s", yield_or_block_var, tr.Template)
 	}
 
-	tr = NewTemplateReader(content)
+	tr, _ = NewTemplateReader(content)
 	tr.Parse()
 
 	if strings.Contains(tr.Template, yield_or_block_var) {
@@ -31,7 +31,7 @@ func TestTemplateReader(t *testing.T) {
 }
 
 func TestTemplateReaderWithYields(t *testing.T) {
-	tr := NewTemplateReader(layout)
+	tr, _ := NewTemplateReader(layout)
 	tr.Parse()
 
 	if len(tr.Yields) != 2 {
@@ -56,7 +56,7 @@ func TestTemplateReaderWithYields(t *testing.T) {
 }
 
 func TestTemplateReaderWithBlocks(t *testing.T) {
-	tr := NewTemplateReader(content)
+	tr, _ := NewTemplateReader(content)
 	tr.Parse()
 
 	if len(tr.Yields) != 3 {
@@ -84,7 +84,7 @@ func BenchmarkTemplateReaderWithYields(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tr := NewTemplateReader(layout)
+		tr, _ := NewTemplateReader(layout)
 		tr.Parse()
 	}
 }
@@ -93,7 +93,7 @@ func BenchmarkTemplateReaderWithBlocks(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tr := NewTemplateReader(content)
+		tr, _ := NewTemplateReader(content)
 		tr.Parse()
 	}
 }

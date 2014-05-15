@@ -27,13 +27,13 @@ type TemplateReader struct {
 	file   string
 }
 
-func NewTemplateReader(file string) *TemplateReader {
+func NewTemplateReader(file string) (*TemplateReader, error) {
 	fp, err := os.Open(file)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return &TemplateReader{
+	tr := &TemplateReader{
 		Template: "",
 		Yields:   map[string]string{},
 		Blocks:   map[string]string{},
@@ -43,6 +43,8 @@ func NewTemplateReader(file string) *TemplateReader {
 		line:   "",
 		file:   file,
 	}
+
+	return tr, nil
 }
 
 func (tr *TemplateReader) Parse() {
