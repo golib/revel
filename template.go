@@ -6,7 +6,6 @@ import (
 	"html"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -303,18 +302,9 @@ func (loader *TemplateLoader) Refresh() *Error {
 			if _, ok := loader.templatePaths[fileName]; ok {
 				return nil
 			}
-
-			// Load the file
-			// return file error if exists
-			fileBytes, fileErr := ioutil.ReadFile(path)
-			if fileErr != nil {
-				ERROR.Println("[ioutil.ReadFile] ", path, " : ", err.Error())
-				return fileErr
-			}
-
 			loader.templatePaths[fileName] = path
 
-			return loader.Register(fileName, string(fileBytes))
+			return loader.Register(fileName, path)
 		})
 
 		// If there was an error with the Funcs, set it and return immediately.
@@ -336,7 +326,15 @@ func (loader *TemplateLoader) Refresh() *Error {
 // The name is the template's path relative to a template loader root.
 //
 // An error is returned if TemplateLoader has already been executed.
-func (loader *TemplateLoader) Register(name, content string) error {
+func (loader *TemplateLoader) Register(name, file string) error {
+	// Parse the file
+	// return file error if occured
+	tr, err := NewTemplateReader(file)
+	if err != nil {
+		ERROR.Println("New template reader of ", file, " : ", err.Error())
+	}
+	tr.Parse()
+
 	// Convert template name to use forward slashes, even on Windows.
 	if os.PathSeparator == '\\' {
 		name = strings.Replace(name, `\`, `/`, -1)
@@ -389,12 +387,12 @@ func (loader *TemplateLoader) Register(name, content string) error {
 		return templateErr
 	}
 
-	if err := register(name, content); err != nil {
+	if err := register(name, tr.Template); err != nil {
 		return err
 	}
 
 	// Lower case the file name for case-insensitive matching
-	if err := register(strings.ToLower(name), content); err != nil {
+	if err := register(strings.ToLower(name), tr.Template); err != nil {
 		return err
 	}
 
