@@ -1,0 +1,10 @@
+{{set . "title" "Template render panic"}}
+{{template "header.html" .}}
+
+<h1>Panic:</h1>
+
+{{if .panic}}
+<div>{{triggerPanic}}</div>
+{{end}}
+
+{{template "footer.html" .}}

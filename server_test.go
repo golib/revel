@@ -9,6 +9,15 @@ import (
 	"testing"
 )
 
+var (
+	showRequest, _      = http.NewRequest("GET", "/hotels/3", nil)
+	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
+	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
+	plaintextRequest, _ = http.NewRequest("GET", "/hotels/greeting", nil)
+	errorRequest, _     = http.NewRequest("GET", "/hotels/error", nil)
+	panicRequest, _     = http.NewRequest("GET", "/hotels/panic", nil)
+)
+
 // This tries to benchmark the usual request-serving pipeline to get an overall
 // performance metric.
 //
@@ -40,7 +49,7 @@ func BenchmarkServeStatic(b *testing.B) {
 }
 
 func benchmarkRequest(b *testing.B, req *http.Request) {
-	startFakeBookingApp()
+	fakeTestApp()
 	b.ResetTimer()
 	resp := httptest.NewRecorder()
 	for i := 0; i < b.N; i++ {
@@ -50,7 +59,7 @@ func benchmarkRequest(b *testing.B, req *http.Request) {
 
 // Test that the booking app can be successfully run for a test.
 func TestFakeServer(t *testing.T) {
-	startFakeBookingApp()
+	fakeTestApp()
 
 	resp := httptest.NewRecorder()
 
@@ -94,10 +103,3 @@ func getFileSize(t *testing.T, name string) int64 {
 	}
 	return fi.Size()
 }
-
-var (
-	showRequest, _      = http.NewRequest("GET", "/hotels/3", nil)
-	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
-	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
-	plaintextRequest, _ = http.NewRequest("GET", "/hotels", nil)
-)

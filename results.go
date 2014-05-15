@@ -4,106 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"strconv"
 	"time"
 )
 
 type Result interface {
 	Apply(req *Request, resp *Response)
-}
-
-// This result handles all kinds of error codes (500, 404, ..).
-// It renders the relevant error page (errors/CODE.format, e.g. errors/500.json).
-// If RunMode is "dev", this results in a friendly error page.
-type ErrorResult struct {
-	RenderArgs map[string]interface{}
-	Error      error
-}
-
-func (r ErrorResult) Apply(req *Request, resp *Response) {
-	format := req.Format
-	status := resp.Status
-	if status == 0 {
-		status = http.StatusInternalServerError
-	}
-
-	contentType := ContentTypeByFilename("xxx." + format)
-	if contentType == DefaultFileContentType {
-		contentType = "text/plain"
-	}
-
-	// Get the error template.
-	var err error
-	templatePath := fmt.Sprintf("errors/%d.%s", status, format)
-	tmpl, err := MainTemplateLoader.Template(templatePath)
-
-	// This func shows a plaintext error message, in case the template rendering
-	// doesn't work.
-	showPlaintext := func(err error) {
-		PlaintextErrorResult{fmt.Errorf("Server Error:\n%s\n\n"+
-			"Additionally, an error occurred when rendering the error page:\n%s",
-			r.Error, err)}.Apply(req, resp)
-	}
-
-	if tmpl == nil {
-		if err == nil {
-			err = fmt.Errorf("Couldn't find template %s", templatePath)
-		}
-		showPlaintext(err)
-		return
-	}
-
-	// If it's not a revel error, wrap it in one.
-	var revelError *Error
-	switch e := r.Error.(type) {
-	case *Error:
-		revelError = e
-	case error:
-		revelError = &Error{
-			Title:       "Server Error",
-			Description: e.Error(),
-		}
-	}
-
-	if revelError == nil {
-		panic("no error provided")
-	}
-
-	if r.RenderArgs == nil {
-		r.RenderArgs = make(map[string]interface{})
-	}
-	r.RenderArgs["RunMode"] = RunMode
-	r.RenderArgs["Error"] = revelError
-	r.RenderArgs["Router"] = MainRouter
-
-	// Render it.
-	var b bytes.Buffer
-	err = tmpl.Render(&b, r.RenderArgs)
-
-	// If there was an error, print it in plain text.
-	if err != nil {
-		showPlaintext(err)
-		return
-	}
-
-	resp.WriteHeader(status, contentType)
-	b.WriteTo(resp.Out)
-}
-
-type PlaintextErrorResult struct {
-	Error error
-}
-
-// This method is used when the template loader or error template is not available.
-func (r PlaintextErrorResult) Apply(req *Request, resp *Response) {
-	resp.WriteHeader(http.StatusInternalServerError, "text/plain; charset=utf-8")
-	resp.Out.Write([]byte(r.Error.Error()))
 }
 
 // Action methods return this result to request a template be rendered.
@@ -117,6 +27,7 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 	defer func() {
 		if err := recover(); err != nil {
 			ERROR.Println(err)
+
 			PlaintextErrorResult{fmt.Errorf("Template Execution Panic in %s:\n%s",
 				r.Template.Name(), err)}.Apply(req, resp)
 		}
@@ -130,33 +41,41 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 		out = ioutil.Discard
 	}
 
-	// In a prod mode, write the status, render, and hope for the best.
-	// (In a dev mode, always render to a temporary buffer first to avoid having
-	// error pages distorted by HTML already written)
-	if chunked && !DevMode {
-		resp.WriteHeader(http.StatusOK, "text/html; charset=utf-8")
-		r.render(req, resp, out)
+	// Render the template into a temporary buffer, to see if there was an error
+	// rendering the template. If not, then copy it into the response buffer.
+	// Otherwise, template render errors may result in unpredictable HTML (and
+	// would carry a 200 status code)
+	// (Always render to a temporary buffer first to avoid having error pages
+	// distorted by HTML already written)
+	var buf bytes.Buffer
+
+	r.renderTemplate(req, resp, &buf)
+	if buf.Len() == 0 {
+		// avoid http connection hanging up!
+		buf.WriteTo(out)
 		return
 	}
 
-	// Render the template into a temporary buffer, to see if there was an error
-	// rendering the template.  If not, then copy it into the response buffer.
-	// Otherwise, template render errors may result in unpredictable HTML (and
-	// would carry a 200 status code)
-	var b bytes.Buffer
-	r.render(req, resp, &b)
-	if !chunked {
-		resp.Out.Header().Set("Content-Length", strconv.Itoa(b.Len()))
-	}
 	resp.WriteHeader(http.StatusOK, "text/html; charset=utf-8")
-	b.WriteTo(out)
+	if !chunked {
+		resp.Out.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	} else {
+		// It isn't needed for progressive rendering.
+		// However, it is needed when the total content length is unknown before the first bytes are sent.
+		resp.Out.Header().Set("Transfer-Encoding", "chunked")
+	}
+
+	buf.WriteTo(out)
 }
 
-func (r *RenderTemplateResult) render(req *Request, resp *Response, wr io.Writer) {
-	err := r.Template.Render(wr, r.RenderArgs)
+func (r *RenderTemplateResult) renderTemplate(req *Request, resp *Response, buf *bytes.Buffer) {
+	err := r.Template.Render(buf, r.RenderArgs)
 	if err == nil {
 		return
 	}
+
+	// clean rendered result
+	buf.Reset()
 
 	var templateContent []string
 	templateName, line, description := parseTemplateError(err)
@@ -164,20 +83,34 @@ func (r *RenderTemplateResult) render(req *Request, resp *Response, wr io.Writer
 		templateName = r.Template.Name()
 		templateContent = r.Template.Content()
 	} else {
-		if tmpl, err := MainTemplateLoader.Template(templateName); err == nil {
-			templateContent = tmpl.Content()
+		if templateSet, err := MainTemplateLoader.Template(templateName); err == nil {
+			templateContent = templateSet.Content()
 		}
 	}
+
 	compileError := &Error{
 		Title:       "Template Execution Error",
+		Line:        line,
 		Path:        templateName,
 		Description: description,
-		Line:        line,
 		SourceLines: templateContent,
 	}
-	resp.Status = 500
+
 	ERROR.Printf("Template Execution Error (in %s): %s", templateName, description)
+
+	// respond as internal server error
+	resp.Status = 500
+
 	ErrorResult{r.RenderArgs, compileError}.Apply(req, resp)
+}
+
+type RenderTextResult struct {
+	text string
+}
+
+func (r RenderTextResult) Apply(req *Request, resp *Response) {
+	resp.WriteHeader(http.StatusOK, "text/plain; charset=utf-8")
+	resp.Out.Write([]byte(r.text))
 }
 
 type RenderHtmlResult struct {
@@ -190,20 +123,25 @@ func (r RenderHtmlResult) Apply(req *Request, resp *Response) {
 }
 
 type RenderJsonResult struct {
-	obj      interface{}
+	json     interface{}
 	callback string
 }
 
 func (r RenderJsonResult) Apply(req *Request, resp *Response) {
-	var b []byte
-	var err error
+	var (
+		b   []byte
+		err error
+	)
+
 	if Config.BoolDefault("results.pretty", false) {
-		b, err = json.MarshalIndent(r.obj, "", "  ")
+		b, err = json.MarshalIndent(r.json, "", "  ")
 	} else {
-		b, err = json.Marshal(r.obj)
+		b, err = json.Marshal(r.json)
 	}
 
 	if err != nil {
+		ERROR.Println("json marshal error : ", err.Error())
+
 		ErrorResult{Error: err}.Apply(req, resp)
 		return
 	}
@@ -221,19 +159,24 @@ func (r RenderJsonResult) Apply(req *Request, resp *Response) {
 }
 
 type RenderXmlResult struct {
-	obj interface{}
+	xml interface{}
 }
 
 func (r RenderXmlResult) Apply(req *Request, resp *Response) {
-	var b []byte
-	var err error
+	var (
+		b   []byte
+		err error
+	)
+
 	if Config.BoolDefault("results.pretty", false) {
-		b, err = xml.MarshalIndent(r.obj, "", "  ")
+		b, err = xml.MarshalIndent(r.xml, "", "  ")
 	} else {
-		b, err = xml.Marshal(r.obj)
+		b, err = xml.Marshal(r.xml)
 	}
 
 	if err != nil {
+		ERROR.Println("xml marshal error : ", err.Error())
+
 		ErrorResult{Error: err}.Apply(req, resp)
 		return
 	}
@@ -242,13 +185,100 @@ func (r RenderXmlResult) Apply(req *Request, resp *Response) {
 	resp.Out.Write(b)
 }
 
-type RenderTextResult struct {
-	text string
+// This result is used when the template loader or error template is not available.
+type PlaintextErrorResult struct {
+	Error error
 }
 
-func (r RenderTextResult) Apply(req *Request, resp *Response) {
-	resp.WriteHeader(http.StatusOK, "text/plain; charset=utf-8")
-	resp.Out.Write([]byte(r.text))
+func (r PlaintextErrorResult) Apply(req *Request, resp *Response) {
+	resp.WriteHeader(http.StatusInternalServerError, "text/plain; charset=utf-8")
+	resp.Out.Write([]byte(r.Error.Error()))
+}
+
+// This result handles all kinds of error codes (500, 404, ..).
+// It renders the relevant error page (errors/CODE.format, e.g. errors/500.json).
+// If RunMode is "dev", this results in a friendly error page.
+type ErrorResult struct {
+	RenderArgs map[string]interface{}
+	Error      error
+}
+
+func (r ErrorResult) Apply(req *Request, resp *Response) {
+	// This func shows a plaintext error message, in case the template rendering
+	// doesn't work.
+	showPlaintext := func(err error) {
+		PlaintextErrorResult{fmt.Errorf("Server Error:\n%s\n\n"+
+			"Additionally, an error occurred when rendering the error page:\n%s",
+			r.Error, err)}.Apply(req, resp)
+	}
+
+	format := req.Format
+	status := resp.Status
+	if status == 0 {
+		status = http.StatusInternalServerError
+	}
+
+	contentType := ContentTypeByFilename("revel." + format)
+	if contentType == DefaultFileContentType {
+		contentType = "text/plain"
+	}
+
+	// Get the error template.
+	var err error
+	templateName := fmt.Sprintf("errors/%d.%s", status, format)
+
+	// first, search app/views/errors
+	templateSet, err := MainTemplateLoader.Template(templateName)
+	if err != nil || templateSet == nil {
+		// second, fallback to revel templates/errors
+		templateSet, err = RevelTemplateLoader.Template(templateName)
+	}
+
+	if templateSet == nil {
+		if err == nil {
+			err = fmt.Errorf("Couldn't find template %s", templateName)
+		}
+
+		showPlaintext(err)
+		return
+	}
+
+	// If it's not a revel error, wrap it in one.
+	var revelError *Error
+	switch err := r.Error.(type) {
+	case *Error:
+		revelError = err
+	case error:
+		revelError = &Error{
+			Title:       "Server Error",
+			Description: err.Error(),
+		}
+	default:
+		revelError = &Error{
+			Title:       "Unknown Server Error",
+			Description: "Unknown server error triggered",
+		}
+	}
+
+	if r.RenderArgs == nil {
+		r.RenderArgs = make(map[string]interface{})
+	}
+	r.RenderArgs["RunMode"] = RunMode
+	r.RenderArgs["Error"] = revelError
+	r.RenderArgs["Router"] = MainRouter
+
+	// Render it.
+	var buf bytes.Buffer
+	err = templateSet.Render(&buf, r.RenderArgs)
+
+	// If there was an error, print it in plain text.
+	if err != nil {
+		showPlaintext(err)
+		return
+	}
+
+	resp.WriteHeader(status, contentType)
+	buf.WriteTo(resp.Out)
 }
 
 type ContentDisposition string
@@ -305,50 +335,18 @@ func (r *RedirectToUrlResult) Apply(req *Request, resp *Response) {
 }
 
 type RedirectToActionResult struct {
-	val interface{}
+	val  interface{}
+	args map[string]string
 }
 
 func (r *RedirectToActionResult) Apply(req *Request, resp *Response) {
-	url, err := getRedirectUrl(r.val)
+	url, err := FindResourceUrl(r.val, r.args)
 	if err != nil {
 		ERROR.Println("Couldn't resolve redirect:", err.Error())
 		ErrorResult{Error: err}.Apply(req, resp)
 		return
 	}
-	resp.Out.Header().Set("Location", url)
-	resp.WriteHeader(http.StatusFound, "")
-}
 
-func getRedirectUrl(item interface{}) (string, error) {
-	// Handle strings
-	if url, ok := item.(string); ok {
-		return url, nil
-	}
-
-	// Handle funcs
-	val := reflect.ValueOf(item)
-	typ := reflect.TypeOf(item)
-	if typ.Kind() == reflect.Func && typ.NumIn() > 0 {
-		// Get the Controller Method
-		recvType := typ.In(0)
-		method := FindMethod(recvType, val)
-		if method == nil {
-			return "", errors.New("couldn't find method")
-		}
-
-		// Construct the action string (e.g. "Controller.Method")
-		if recvType.Kind() == reflect.Ptr {
-			recvType = recvType.Elem()
-		}
-		action := recvType.Name() + "." + method.Name
-		actionDef := MainRouter.Reverse(action, make(map[string]string))
-		if actionDef == nil {
-			return "", errors.New("no route for action " + action)
-		}
-
-		return actionDef.String(), nil
-	}
-
-	// Out of guesses
-	return "", errors.New("didn't recognize type: " + typ.String())
+	rurl := &RedirectToUrlResult{url: url}
+	rurl.Apply(req, resp)
 }

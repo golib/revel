@@ -499,8 +499,13 @@ func (engine *GoTemplateEngine) WatchDir(dir os.FileInfo) bool {
 }
 
 func (engine GoTemplateEngine) WatchFile(file string) bool {
-	// Watch all files with .html extension, except the ones starting with a dot.
-	return !strings.HasPrefix(file, ".") && strings.HasSuffix(strings.ToLower(file), ".html")
+	// Watch all files with .html, .json, .xml, .txt extension, except the ones starting with a dot.
+	lowercaseFile := strings.ToLower(file)
+
+	return !strings.HasPrefix(file, ".") && (strings.HasSuffix(lowercaseFile, ".html") ||
+		strings.HasSuffix(lowercaseFile, ".json") ||
+		strings.HasSuffix(lowercaseFile, ".xml") ||
+		strings.HasSuffix(lowercaseFile, ".txt"))
 }
 
 /////////////////////

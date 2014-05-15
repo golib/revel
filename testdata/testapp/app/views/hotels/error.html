@@ -1,0 +1,10 @@
+{{set . "title" "Template render error"}}
+{{template "header.html" .}}
+
+<h1>Error:</h1>
+
+{{if .error}}
+<div>{{.NilPointer.Field}}</div>
+{{end}}
+
+{{template "footer.html" .}}

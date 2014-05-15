@@ -2,6 +2,7 @@ package revel
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -61,6 +62,48 @@ func FindMethod(recvType reflect.Type, funcVal reflect.Value) *reflect.Method {
 		}
 	}
 	return nil
+}
+
+// return the url of resource
+func FindResourceUrl(resource interface{}, args ...map[string]string) (string, error) {
+	// Handle strings
+	if url, ok := resource.(string); ok {
+		return url, nil
+	}
+
+	// Handle funcs
+	typ := reflect.TypeOf(resource)
+	if typ.Kind() == reflect.Func && typ.NumIn() > 0 {
+		val := reflect.ValueOf(resource)
+
+		// Get the Controller Method
+		recvType := typ.In(0)
+		method := FindMethod(recvType, val)
+		if method == nil {
+			return "", errors.New("couldn't find method")
+		}
+
+		// Construct the action string (e.g. "Controller.Method")
+		if recvType.Kind() == reflect.Ptr {
+			recvType = recvType.Elem()
+		}
+
+		recvArgs := map[string]string{}
+		if len(args) > 0 {
+			recvArgs = args[0]
+		}
+
+		action := recvType.Name() + "." + method.Name
+		actionDef := MainRouter.Reverse(action, recvArgs)
+		if actionDef == nil {
+			return "", errors.New("couldn't find route for action " + action)
+		}
+
+		return actionDef.String(), nil
+	}
+
+	// Out of guesses
+	return "", errors.New("didn't recognize type " + typ.String())
 }
 
 var (

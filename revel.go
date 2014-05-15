@@ -1,8 +1,6 @@
 package revel
 
 import (
-	"github.com/agtorre/gocolorize"
-	"github.com/robfig/config"
 	"go/build"
 	"io"
 	"io/ioutil"
@@ -12,6 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/agtorre/gocolorize"
+	"github.com/robfig/config"
 )
 
 const (
@@ -41,7 +42,8 @@ var (
 	DevMode bool   // if true, RunMode is a development mode.
 
 	// Revel installation details
-	RevelPath string // e.g. "/Users/robfig/gocode/src/revel"
+	RevelPath         string // e.g. "/Users/robfig/gocode/src/revel"
+	RevelTemplatePath string // e.g. "/Users/robfig/gocode/src/revel/templates"
 
 	// Where to look for templates and configuration.
 	// Ordered by priority.  (Earlier paths take precedence over later paths.)
@@ -69,9 +71,6 @@ var (
 	// Cookie flags
 	CookieHttpOnly bool
 	CookieSecure   bool
-
-	// Delimiters to use when rendering templates
-	TemplateDelims string
 
 	//Logger colors
 	colors = map[string]gocolorize.Colorize{
@@ -129,6 +128,7 @@ func Init(mode, importPath, srcPath string) {
 	}
 
 	RevelPath = path.Join(revelSourcePath, filepath.FromSlash(REVEL_IMPORT_PATH))
+	RevelTemplatePath = path.Join(RevelPath, "templates")
 	BasePath = path.Join(SourcePath, filepath.FromSlash(importPath))
 	AppPath = path.Join(BasePath, "app")
 	ViewsPath = path.Join(AppPath, "views")
@@ -142,7 +142,6 @@ func Init(mode, importPath, srcPath string) {
 
 	TemplatePaths = []string{
 		ViewsPath,
-		path.Join(RevelPath, "templates"),
 	}
 
 	// Load default app.conf
@@ -193,7 +192,6 @@ func Init(mode, importPath, srcPath string) {
 	CookiePrefix = Config.StringDefault("cookie.prefix", "REVEL")
 	CookieHttpOnly = Config.BoolDefault("cookie.httponly", false)
 	CookieSecure = Config.BoolDefault("cookie.secure", false)
-	TemplateDelims = Config.StringDefault("template.delimiters", "")
 	if secretStr := Config.StringDefault("app.secret", ""); secretStr != "" {
 		secretKey = []byte(secretStr)
 	}

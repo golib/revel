@@ -15,6 +15,8 @@ var (
 	MainTemplateLoader *TemplateLoader
 	MainWatcher        *Watcher
 	Server             *http.Server
+
+	RevelTemplateLoader *TemplateLoader
 )
 
 // This method handles all requests.  It dispatches to handleInternal after
@@ -67,6 +69,9 @@ func Run(port int) {
 	} else {
 		localAddress = address + ":" + strconv.Itoa(port)
 	}
+
+	RevelTemplateLoader = NewTemplateLoader("default", []string{RevelTemplatePath})
+	RevelTemplateLoader.Refresh()
 
 	MainTemplateLoader = NewTemplateLoader(Config.StringDefault("template.engine", "default"), TemplatePaths)
 	MainTemplateLoader.SetConfig(Config)

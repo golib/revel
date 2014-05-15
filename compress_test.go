@@ -8,7 +8,7 @@ import (
 
 // Test that the render response is as expected.
 func TestBenchmarkCompressed(t *testing.T) {
-	startFakeBookingApp()
+	fakeTestApp()
 	resp := httptest.NewRecorder()
 	c := NewController(NewRequest(showRequest), NewResponse(resp))
 	c.SetAction("Hotels", "Show")
@@ -21,7 +21,7 @@ func TestBenchmarkCompressed(t *testing.T) {
 }
 
 func BenchmarkRenderCompressed(b *testing.B) {
-	startFakeBookingApp()
+	fakeTestApp()
 	resp := httptest.NewRecorder()
 	resp.Body = nil
 	c := NewController(NewRequest(showRequest), NewResponse(resp))
@@ -36,7 +36,7 @@ func BenchmarkRenderCompressed(b *testing.B) {
 }
 
 func BenchmarkRenderUnCompressed(b *testing.B) {
-	startFakeBookingApp()
+	fakeTestApp()
 	resp := httptest.NewRecorder()
 	resp.Body = nil
 	c := NewController(NewRequest(showRequest), NewResponse(resp))

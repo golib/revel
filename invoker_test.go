@@ -114,7 +114,7 @@ func BenchmarkSetAction(b *testing.B) {
 }
 
 func BenchmarkInvoker(b *testing.B) {
-	startFakeBookingApp()
+	fakeTestApp()
 	c := Controller{
 		RenderArgs: make(map[string]interface{}),
 	}
