@@ -53,7 +53,7 @@ func (tr *TemplateReader) Parse() {
 	lines := []string{}
 	for tr.readline() {
 		switch {
-		case tr.line[0] == '-': // block define
+		case tr.line[0] == '-' && rblock.MatchString(tr.line): // block define
 			line := tr.consumeline()
 
 			matches := rblock.FindStringSubmatch(line)
