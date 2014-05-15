@@ -43,8 +43,8 @@ func TestTemplateReaderWithBlocks(t *testing.T) {
 	tr := NewTemplateReader(content)
 	tr.Parse()
 
-	if len(tr.Yields) != 0 {
-		t.Errorf("Expected no yield invoking, but got %d", len(tr.Yields))
+	if len(tr.Yields) != 3 {
+		t.Errorf("Expected invoking yield 3 times, but got %d", len(tr.Yields))
 	}
 
 	if len(tr.Blocks) != 3 {

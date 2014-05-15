@@ -75,6 +75,7 @@ func (tr *TemplateReader) Parse() {
 				blockLines = append(blockLines, tr.consumeline())
 			}
 
+			tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
 			tr.Blocks[byName] = strings.Join(blockLines, "\n")
 		default:
 			line := tr.consumeline()
@@ -93,7 +94,10 @@ func (tr *TemplateReader) Parse() {
 		}
 	}
 
-	tr.Blocks[tr.byname([]string{""})] = strings.Join(lines, "\n")
+	// default block
+	byName := tr.byname([]string{""})
+	tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
+	tr.Blocks[byName] = strings.Join(lines, "\n")
 	return
 }
 
