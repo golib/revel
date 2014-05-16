@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	indexRequest, _     = http.NewRequest("GET", "/hotels", nil)
 	showRequest, _      = http.NewRequest("GET", "/hotels/3", nil)
 	staticRequest, _    = http.NewRequest("GET", "/public/js/sessvars.js", nil)
 	jsonRequest, _      = http.NewRequest("GET", "/hotels/3/booking", nil)
