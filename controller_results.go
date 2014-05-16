@@ -35,12 +35,22 @@ func (c *Controller) FlashParams() {
 
 // Render a template and capture the result
 func (c *Controller) CaptureTemplate(name string) template.HTML {
+	// Handle panics when rendering templates.
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			ERROR.Println("Template Execution Panic in %s : %s\n", name, panicErr)
+
+			return ""
+		}
+	}()
+
 	// always using lowercase
 	name = strings.ToLower(name)
 
 	// Get the Template.
 	goTemplate, err := MainTemplateLoader.Template(name)
 	if err != nil {
+		ERROR.Printf("Failed loading template %s : %s\n", name, err.Error())
 		return ""
 	}
 
@@ -48,6 +58,7 @@ func (c *Controller) CaptureTemplate(name string) template.HTML {
 
 	err = goTemplate.Render(buf, c.RenderArgs)
 	if err != nil {
+		ERROR.Printf("Failed rendering template %s : %s\n", name, err.Error())
 		return ""
 	}
 
