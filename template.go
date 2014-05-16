@@ -439,6 +439,18 @@ func (loader *TemplateLoader) Template(name string) (Template, error) {
 	return GoTemplate{templateSet, loader}, err
 }
 
+// Return the yields with the given name.
+// The name is the template's path relative to a template loader root.
+//
+// An Error is returned if there is no related yield with lowercase name.
+func (loader *TemplateLoader) Yield(name string) (map[string]string, error) {
+	if yields, ok := loader.templateYields[strings.ToLower(name)]; ok {
+		return yields, nil
+	}
+
+	return nil, fmt.Errorf("Yield %s not found.", name)
+}
+
 // Adapter for Go Templates.
 type GoTemplate struct {
 	*template.Template
