@@ -39,8 +39,7 @@ func (c *Controller) CaptureTemplate(name string) template.HTML {
 	defer func() {
 		if panicErr := recover(); panicErr != nil {
 			ERROR.Println("Template Execution Panic in %s : %s\n", name, panicErr)
-
-			return ""
+			return
 		}
 	}()
 
