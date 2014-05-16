@@ -1,7 +1,9 @@
 package revel
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -29,6 +31,27 @@ func (c *Controller) FlashParams() {
 	for key, vals := range c.Params.Values {
 		c.Flash.Out[key] = strings.Join(vals, ",")
 	}
+}
+
+// Render a template and capture the result
+func (c *Controller) CaptureTemplate(name string) template.HTML {
+	// always using lowercase
+	name = strings.ToLower(name)
+
+	// Get the Template.
+	goTemplate, err := MainTemplateLoader.Template(name)
+	if err != nil {
+		return ""
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+
+	err = goTemplate.Render(buf, c.RenderArgs)
+	if err != nil {
+		return ""
+	}
+
+	return template.HTML(buf.String())
 }
 
 // Render a template corresponding to the calling Controller method.
