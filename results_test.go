@@ -30,8 +30,8 @@ func TestRenderTemplateResult(t *testing.T) {
 	if resp.HeaderMap.Get("Content-Length") != fmt.Sprintf("%d", len(resp.Body.String())) {
 		t.Errorf("Expect respond content length `%d` but got `%s`", len(resp.Body.String()), resp.HeaderMap.Get("Content-Length"))
 	}
-	if !strings.Contains(resp.Body.String(), "View hotel") {
-		t.Errorf("Expect respond with `View hotel` but got `%s`", resp.Body.String())
+	if !strings.Contains(resp.Body.String(), "Hotels Show Page") {
+		t.Errorf("Expect respond with `Hotels Show Page` but got `%s`", resp.Body.String())
 	}
 }
 
@@ -57,8 +57,8 @@ func TestRenderTemplateResultWithChunked(t *testing.T) {
 	if resp.HeaderMap.Get("Content-Length") != "" {
 		t.Errorf("Expect respond content length `` but got `%s`", resp.HeaderMap.Get("Content-Length"))
 	}
-	if !strings.Contains(resp.Body.String(), "View hotel") {
-		t.Errorf("Expect respond with `View hotel` but got `%s`", resp.Body.String())
+	if !strings.Contains(resp.Body.String(), "Hotels Show Page") {
+		t.Errorf("Expect respond with `Hotels Show Page` but got `%s`", resp.Body.String())
 	}
 }
 
@@ -320,8 +320,8 @@ func TestErrorResultWithApp(t *testing.T) {
 	if !strings.Contains(resp.HeaderMap.Get("Content-Type"), "text/html") {
 		t.Errorf("Expect respond content type `text/html` but got `%s`", resp.HeaderMap.Get("Content-Type"))
 	}
-	if !strings.Contains(resp.Body.String(), "App 403 error page") {
-		t.Errorf("Expect respond content `App 403 error page` but got `%s`", resp.Body.String())
+	if !strings.Contains(resp.Body.String(), "Hotels 403 Error Page") {
+		t.Errorf("Expect respond content `Hotels 403 Error Page` but got `%s`", resp.Body.String())
 	}
 }
 
