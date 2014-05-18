@@ -15,17 +15,29 @@ func TestTemplateReader(t *testing.T) {
 	tr, _ := NewTemplateReader(layout)
 	tr.Parse()
 
-	layout_byname := tr.byname([]string{""})
-	if !strings.Contains(tr.Template, layout_byname) {
-		t.Errorf("Expected block contains `%s`, but got %s", layout_byname, tr.Template)
+	titleYieldName := tr.yieldName("title")
+	defaultYieldName := tr.yieldName("")
+
+	if !strings.Contains(tr.Template, titleYieldName) {
+		t.Errorf("Expected layout contains `%s`, but got %s", titleYieldName, tr.Template)
+	}
+
+	if !strings.Contains(tr.Template, defaultYieldName) {
+		t.Errorf("Expected layout contains `%s`, but got %s", defaultYieldName, tr.Template)
 	}
 
 	tr, _ = NewTemplateReader(content)
 	tr.Parse()
 
-	content_byname := tr.byname([]string{""})
-	if strings.Contains(tr.Template, content_byname) {
-		t.Errorf("Expected block doesn't contain `%s`, but got %s", content_byname, tr.Template)
+	titleBlockName := tr.Yield2Blocks[titleYieldName]
+	defaultBlockName := tr.Yield2Blocks[defaultYieldName]
+
+	if _, ok := tr.Blocks[titleBlockName]; !ok {
+		t.Errorf("Expected block contains `%s`, but got %#v", titleBlockName, tr.Blocks)
+	}
+
+	if _, ok := tr.Blocks[defaultBlockName]; !ok {
+		t.Errorf("Expected block contains `%s`, but got %#v", defaultBlockName, tr.Blocks)
 	}
 }
 
@@ -33,27 +45,20 @@ func TestTemplateReaderWithYields(t *testing.T) {
 	tr, _ := NewTemplateReader(layout)
 	tr.Parse()
 
-	layout_byname := tr.byname([]string{""})
-
-	if len(tr.Yields) != 2 {
-		t.Errorf("Expected invoking yield 2 times, but got %d", len(tr.Yields))
-	}
-
-	if _, ok := tr.Yields[layout_byname]; !ok {
-		t.Errorf("Expected contains yield `%s`, but got %#v", layout_byname, tr.Yields)
+	if len(tr.Yield2Blocks) != 1 {
+		t.Errorf("Expected invoking yield %d times, but got %d", 1, len(tr.Yield2Blocks))
 	}
 
 	if len(tr.Blocks) != 1 {
 		t.Errorf("Expected 1 block, but got %d", len(tr.Blocks))
 	}
 
-	if _, ok := tr.Blocks[layout_byname]; !ok {
-		t.Errorf("Expected contains block `%s`, but got %#v", layout_byname, tr.Blocks)
+	if !strings.Contains(tr.Template, tr.Yield2Blocks[tr.yieldName("title")]) {
+		t.Errorf("Expected yield `%s`, but got %s", tr.yieldName("title"), tr.Template)
 	}
 
-	layout_byname_var := "{{." + layout_byname + "}}"
-	if html, _ := tr.Blocks[layout_byname]; !strings.Contains(html, layout_byname_var) {
-		t.Errorf("Expected block contains `%s`, but got %s", layout_byname_var, html)
+	if !strings.Contains(tr.Template, tr.yieldName("")) {
+		t.Errorf("Expected yield `%s`, but got %s", tr.yieldName(""), tr.Template)
 	}
 }
 
@@ -61,26 +66,30 @@ func TestTemplateReaderWithBlocks(t *testing.T) {
 	tr, _ := NewTemplateReader(content)
 	tr.Parse()
 
-	content_byname := tr.byname([]string{""})
-
-	if len(tr.Yields) != 3 {
-		t.Errorf("Expected invoking yield 3 times, but got %d", len(tr.Yields))
-	}
-
-	if _, ok := tr.Yields[content_byname]; !ok {
-		t.Errorf("Expected contains yield `%s`, but got %#v", content_byname, tr.Yields)
+	if len(tr.Yield2Blocks) != 3 {
+		t.Errorf("Expected invoking yield 3 times, but got %d", len(tr.Yield2Blocks))
 	}
 
 	if len(tr.Blocks) != 3 {
 		t.Errorf("Expected 3 blocks, but got %d", len(tr.Blocks))
 	}
 
-	if _, ok := tr.Blocks[content_byname]; !ok {
-		t.Errorf("Expected contains block `%s`, but got %#v", content_byname, tr.Blocks)
+	if !strings.Contains(tr.Blocks[tr.blockName("title")], "Layout template title") {
+		t.Errorf("Expected title block contains `%s`, but got %s",
+			"Layout template title",
+			tr.Blocks[tr.blockName("title")])
 	}
 
-	if html, _ := tr.Blocks[content_byname]; !strings.Contains(html, "This is normal template content") {
-		t.Errorf("Expected block contains `%s`, but got %s", "This is normal template content", html)
+	if !strings.Contains(tr.Blocks[tr.blockName("content")], "This is a layout template content") {
+		t.Errorf("Expected content block contains `%s`, but got %s",
+			"This is a layout template content",
+			tr.Blocks[tr.blockName("content")])
+	}
+
+	if !strings.Contains(tr.Blocks[tr.blockName("")], "This is normal template content") {
+		t.Errorf("Expected default block contains `%s`, but got %s",
+			"This is normal template content",
+			tr.Blocks[tr.blockName("")])
 	}
 }
 

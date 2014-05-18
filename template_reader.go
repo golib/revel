@@ -17,9 +17,9 @@ var (
 )
 
 type TemplateReader struct {
-	Template string            // of default block
-	Yields   map[string]string // of all yields / blocks keys
-	Blocks   map[string]string // of all blocks key => template
+	Template     string            // of default block
+	Blocks       map[string]string // of all blocks key => template
+	Yield2Blocks map[string]string // of all keys yield => block
 
 	fp     *os.File
 	reader *bufio.Reader
@@ -34,9 +34,9 @@ func NewTemplateReader(file string) (*TemplateReader, error) {
 	}
 
 	tr := &TemplateReader{
-		Template: "",
-		Yields:   map[string]string{},
-		Blocks:   map[string]string{},
+		Template:     "",
+		Blocks:       map[string]string{},
+		Yield2Blocks: map[string]string{},
 
 		fp:     fp,
 		reader: bufio.NewReader(fp),
@@ -61,14 +61,16 @@ func (tr *TemplateReader) Parse() {
 				ERROR.Panicf("Unexpected block syntax: %s", line)
 			}
 
-			// generate unique block name
-			byName := tr.byname(matches[1:])
-
-			// ensure next line is indented at least on white space
+			// ensure next line is indented at least one white space
 			tr.readline()
 			if !rindent.MatchString(tr.line) {
 				ERROR.Panicf("Unexpected terminate of block")
 			}
+
+			// generate unique block name
+			name := tr.name(matches[1:])
+			yieldName := tr.yieldName(name)
+			blockName := tr.blockName(name)
 
 			blockLines := []string{tr.consumeline()}
 			for tr.readline() {
@@ -79,19 +81,18 @@ func (tr *TemplateReader) Parse() {
 				blockLines = append(blockLines, tr.consumeline())
 			}
 
-			tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
-			tr.Blocks[byName] = strings.Join(blockLines, "\n")
+			tr.Blocks[blockName] = strings.Join(blockLines, "\n")
+			tr.Yield2Blocks[yieldName] = blockName
 		default:
 			line := tr.consumeline()
 
 			matches := ryield.FindStringSubmatch(line)
 			if len(matches) == 5 {
 				// generate unique block name
-				byName := tr.byname(matches[1:])
+				name := tr.name(matches[1:])
+				yieldName := tr.yieldName(name)
 
-				tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
-
-				line = ryield.ReplaceAllString(line, tr.Yields[byName])
+				line = ryield.ReplaceAllString(line, fmt.Sprintf("{{.%s}}", yieldName))
 			}
 
 			lines = append(lines, line)
@@ -102,9 +103,10 @@ func (tr *TemplateReader) Parse() {
 	tr.Template = strings.Join(lines, "\n")
 
 	// trick of default block
-	byName := tr.byname([]string{""})
-	tr.Yields[byName] = fmt.Sprintf("{{.%s}}", byName)
-	tr.Blocks[byName] = tr.Template
+	yieldName := tr.yieldName("")
+	blockName := tr.blockName("")
+	tr.Blocks[blockName] = tr.Template
+	tr.Yield2Blocks[yieldName] = blockName
 	return
 }
 
@@ -146,17 +148,30 @@ func (tr *TemplateReader) consumeline() string {
 	return line
 }
 
-// block / yield name generator
-func (tr *TemplateReader) byname(names []string) string {
+func (tr *TemplateReader) name(names []string) string {
 	name := strings.Join(names, "")
+	name = strings.ToLower(name)
+	return strings.TrimSpace(name)
+}
 
-	s := fmt.Sprintf("%s#%s", tr.file, name)
-	s = strings.ToLower(s)
-	s = strings.Replace(s, `/`, `_`, -1)
-	s = strings.Replace(s, `\`, `_`, -1)
+func (tr *TemplateReader) yieldName(name string) string {
+	if name == "" {
+		return "revel_yield_default_content"
+	}
+
+	name = strings.Replace(name, `/`, `_`, -1)
+	name = strings.Replace(name, `\`, `_`, -1)
+
+	return fmt.Sprintf("revel_yield_%s", name)
+}
+
+func (tr *TemplateReader) blockName(name string) string {
+	name = fmt.Sprintf("%s#%s", tr.file, name)
+	name = strings.Replace(name, `/`, `_`, -1)
+	name = strings.Replace(name, `\`, `_`, -1)
 
 	sha := sha1.New()
-	io.WriteString(sha, s)
+	io.WriteString(sha, name)
 
-	return fmt.Sprintf("revel_%x", sha.Sum([]byte("revel")))
+	return fmt.Sprintf("revel_block_%x", sha.Sum([]byte("revel")))
 }
