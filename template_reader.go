@@ -148,17 +148,12 @@ func (tr *TemplateReader) consumeline() string {
 
 // block / yield name generator
 func (tr *TemplateReader) byname(names []string) string {
-	var (
-		s    = "__revel_default_yield_or_block__"
-		name = strings.Join(names, "")
-	)
+	name := strings.Join(names, "")
 
-	if name != "" {
-		s = fmt.Sprintf("%s#%s", tr.file, name)
-		s = strings.ToLower(s)
-		s = strings.Replace(s, `/`, `_`, -1)
-		s = strings.Replace(s, `\`, `_`, -1)
-	}
+	s := fmt.Sprintf("%s#%s", tr.file, name)
+	s = strings.ToLower(s)
+	s = strings.Replace(s, `/`, `_`, -1)
+	s = strings.Replace(s, `\`, `_`, -1)
 
 	sha := sha1.New()
 	io.WriteString(sha, s)
