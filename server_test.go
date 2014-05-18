@@ -66,7 +66,12 @@ func TestFakeServer(t *testing.T) {
 
 	// First, test that the expected responses are actually generated
 	handle(resp, showRequest)
-	if !strings.Contains(resp.Body.String(), "300 Main St.") {
+	s := resp.Body.String()
+	if !strings.Contains(s, "Hotels Show Page") {
+		t.Errorf("Failed to find hotel title in action response:\n%s", resp.Body)
+		t.FailNow()
+	}
+	if !strings.Contains(s, "300 Main St.") {
 		t.Errorf("Failed to find hotel address in action response:\n%s", resp.Body)
 		t.FailNow()
 	}
