@@ -1,10 +1,9 @@
 {{template "header.html" .}}
 
-<h1>View hotel</h1>
+<h1>Hotels Show Page</h1>
 
 {{with .hotel}}
 <form action="{{url "Hotels.Book" .HotelId}}">
-
   <p>
     <strong>Name:</strong> {{.Name}}
   </p>
