@@ -1,7 +1,7 @@
 {{set . "title" "Register"}}
 {{template "header.html" .}}
 
-<h1>Register:</h1>
+<h1>Application Register Page</h1>
 
 <form action="{{url "Application.SaveUser"}}" method="POST">
   {{with $field := field "user.Username" .}}

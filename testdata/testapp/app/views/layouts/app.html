@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>{{.title}}</title>
+    <title>#{yield "title"}</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <link rel="stylesheet" type="text/css" media="screen" href="/public/css/main.css">
     {{range .moreStyles}}
@@ -15,8 +15,9 @@
   </head>
   <body>
 
+    <h1>Hotels Layout</h1>
+
     <div id="header">
-      <h1>Hotels Header</h1>
       {{if .user}}
         <div id="options">
           Connected as {{.user.Username}}
@@ -36,8 +37,19 @@
           <strong>{{.flash.error}}</strong>
         </p>
       {{end}}
+
       {{if .flash.success}}
         <p class="fSuccess">
           <strong>{{.flash.success}}</strong>
         </p>
       {{end}}
+
+      = yield
+    </div>
+
+    <div id="footer">
+      Created with the <a href="http://github.com/golib/revel">Revel framework</a> and really inspirated from the booking sample application provided by <a href="http://www.playframework.org">play framework</a>, which was really inspired by the booking sample application provided by the <a href="http://seamframework.org/">seam framework</a>.
+    </div>
+
+  </body>
+</html>

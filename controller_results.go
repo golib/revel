@@ -1,7 +1,10 @@
 package revel
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -29,6 +32,38 @@ func (c *Controller) FlashParams() {
 	for key, vals := range c.Params.Values {
 		c.Flash.Out[key] = strings.Join(vals, ",")
 	}
+}
+
+// Render a template and capture the result
+func (c *Controller) CaptureTemplate(name string) (html template.HTML, err error) {
+	// Handle panics when rendering templates.
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = errors.New(fmt.Sprintf("Template Execution Panic in %s : %s\n", name, panicErr))
+			return
+		}
+	}()
+
+	// always using lowercase
+	name = strings.ToLower(name)
+
+	// Get the Template.
+	goTemplate, err := MainTemplateLoader.Template(name)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed loading template %s : %s\n", name, err.Error()))
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+
+	// Internal help template variable for some purposes?
+	c.RenderArgs["RevelTemplateCaptureMode"] = true
+
+	err = goTemplate.Render(buf, c.RenderArgs)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed rendering template %s : %s\n", name, err.Error()))
+	}
+
+	return template.HTML(buf.String()), nil
 }
 
 // Render a template corresponding to the calling Controller method.
@@ -71,15 +106,64 @@ func (c *Controller) Render(extraRenderArgs ...interface{}) Result {
 
 // A less magical way to render a template.
 // Renders the given template, using the current RenderArgs.
-func (c *Controller) RenderTemplate(templatePath string) Result {
+func (c *Controller) RenderTemplate(name string) Result {
+	// always using lowercase
+	name = strings.ToLower(name)
+
+	// apply all yielded blocks
+	yield2blocks, err := MainTemplateLoader.Yield2Blocks(name)
+	if err == nil {
+		for yieldName, blockName := range yield2blocks {
+			blockHtml, blockErr := c.CaptureTemplate(blockName)
+
+			if blockErr != nil {
+				goTemplate, err := MainTemplateLoader.Template(name)
+				if err != nil {
+					return c.RenderError(err)
+				}
+
+				_, line, description := parseTemplateError(blockErr)
+
+				return c.RenderError(&Error{
+					Title:       "Template Execution Error",
+					Line:        line,
+					Path:        name,
+					Description: description,
+					SourceLines: goTemplate.Content(),
+				})
+			}
+
+			c.RenderArgs[yieldName] = blockHtml
+		}
+	}
+
+	// layout?
+	templateName := name
+	if layouter, ok := c.AppController.(ControllerLayouter); ok {
+		layouts := layouter.Layout()
+
+		// is there an action layout defined?
+		if layout, ok := layouts[c.MethodName]; ok {
+			templateName = layout
+
+			// is there an method:action layout defined?
+		} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
+			templateName = layout
+
+			// is there an wildcard layout defined?
+		} else if layout, ok := layouts["*"]; ok {
+			templateName = layout
+		}
+	}
+
 	// Get the Template.
-	template, err := MainTemplateLoader.Template(templatePath)
+	goTemplate, err := MainTemplateLoader.Template(templateName)
 	if err != nil {
 		return c.RenderError(err)
 	}
 
 	return &RenderTemplateResult{
-		Template:   template,
+		Template:   goTemplate,
 		RenderArgs: c.RenderArgs,
 	}
 }

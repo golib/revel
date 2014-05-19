@@ -13,6 +13,12 @@ type Hotels struct {
 	Application
 }
 
+func (c *Hotels) Layout() map[string]string {
+	return map[string]string{
+		"Index": "layouts/app.html",
+	}
+}
+
 func (c Hotels) checkUser() revel.Result {
 	if user := c.connected(); user == nil {
 		c.Flash.Error("Please log in first")

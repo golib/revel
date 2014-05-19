@@ -1,7 +1,7 @@
 {{set . "title" "Settings"}}
 {{template "header.html" .}}
 
-<h1>Change your password</h1>
+<h1>Hotels Settings Page</h1>
 
 <form method="POST" action="{{url "Hotels.SaveSettings"}}">
   {{with $field := field "password" .}}

@@ -21,6 +21,12 @@ type Hotels struct {
 	*Controller
 }
 
+func (c *Hotels) Layout() map[string]string {
+	return map[string]string{
+		"Index": "layouts/app.html",
+	}
+}
+
 func (c Hotels) Index() Result {
 	bookings := []*Hotel{
 		&Hotel{1, "A Hotel", "300 Main St.", "New York", "NY", "10010", "USA", 300},
@@ -114,7 +120,7 @@ func fakeTestApp() {
 				Name: "Index",
 				Args: []*MethodArg{},
 				RenderArgNames: map[int][]string{
-					30: []string{
+					36: []string{
 						"bookings",
 					},
 				},
@@ -125,7 +131,7 @@ func fakeTestApp() {
 					&MethodArg{Name: "id", Type: reflect.TypeOf((*int)(nil))},
 				},
 				RenderArgNames: map[int][]string{
-					36: []string{
+					42: []string{
 						"title",
 						"hotel",
 					},

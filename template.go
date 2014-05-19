@@ -6,7 +6,6 @@ import (
 	"html"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -220,7 +219,8 @@ type TemplateLoader struct {
 	// This is the set of all templates under views
 	templateSet *template.Template
 	// Map from template name to the path from whence it was loaded.
-	templatePaths map[string]string
+	templatePaths        map[string]string
+	templateYield2Blocks map[string]map[string]string
 }
 
 func NewTemplateLoader(name string, paths []string) *TemplateLoader {
@@ -269,9 +269,11 @@ func (loader *TemplateLoader) SetConfig(mergedConfig *MergedConfig) {
 func (loader *TemplateLoader) Refresh() *Error {
 	TRACE.Printf("Refreshing templates from %s", loader.paths)
 
+	// reset internal stats
 	loader.engineError = nil
 	loader.templateSet = template.New("").Funcs(TemplateHelpers) // fix go template error
 	loader.templatePaths = map[string]string{}
+	loader.templateYield2Blocks = map[string]map[string]string{}
 
 	// Walk through the template loader's paths and build up a template set.
 	for _, basePath := range loader.paths {
@@ -303,18 +305,9 @@ func (loader *TemplateLoader) Refresh() *Error {
 			if _, ok := loader.templatePaths[fileName]; ok {
 				return nil
 			}
-
-			// Load the file
-			// return file error if exists
-			fileBytes, fileErr := ioutil.ReadFile(path)
-			if fileErr != nil {
-				ERROR.Println("[ioutil.ReadFile] ", path, " : ", err.Error())
-				return fileErr
-			}
-
 			loader.templatePaths[fileName] = path
 
-			return loader.Register(fileName, string(fileBytes))
+			return loader.Register(fileName, path)
 		})
 
 		// If there was an error with the Funcs, set it and return immediately.
@@ -336,11 +329,20 @@ func (loader *TemplateLoader) Refresh() *Error {
 // The name is the template's path relative to a template loader root.
 //
 // An error is returned if TemplateLoader has already been executed.
-func (loader *TemplateLoader) Register(name, content string) error {
+func (loader *TemplateLoader) Register(name, file string) error {
+	// Parse the file
+	// return file error if occured
+	tr, err := NewTemplateReader(file)
+	if err != nil {
+		ERROR.Println("New template reader of ", file, " : ", err.Error())
+	}
+	tr.Parse()
+
 	// Convert template name to use forward slashes, even on Windows.
 	if os.PathSeparator == '\\' {
 		name = strings.Replace(name, `\`, `/`, -1)
 	}
+	lowercaseName := strings.ToLower(name)
 
 	// Create the template set.
 	// This panics if any of the funcs do not conform to expectations,
@@ -389,13 +391,24 @@ func (loader *TemplateLoader) Register(name, content string) error {
 		return templateErr
 	}
 
-	if err := register(name, content); err != nil {
+	if err := register(name, tr.Template); err != nil {
 		return err
 	}
 
 	// Lower case the file name for case-insensitive matching
-	if err := register(strings.ToLower(name), content); err != nil {
+	if err := register(lowercaseName, tr.Template); err != nil {
 		return err
+	}
+
+	// relates yields with template lowercase name
+	loader.templateYield2Blocks[lowercaseName] = tr.Yield2Blocks
+
+	// register all of parsed blocks
+	// NOTE: it's also includes the tr.Template treated as default block
+	for blockName, blockHtml := range tr.Blocks {
+		if err := register(blockName, blockHtml); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -426,6 +439,18 @@ func (loader *TemplateLoader) Template(name string) (Template, error) {
 	}
 
 	return GoTemplate{templateSet, loader}, err
+}
+
+// Return the yields with the given name.
+// The name is the template's path relative to a template loader root.
+//
+// An Error is returned if there is no related yield with lowercase name.
+func (loader *TemplateLoader) Yield2Blocks(name string) (map[string]string, error) {
+	if yield2blocks, ok := loader.templateYield2Blocks[strings.ToLower(name)]; ok {
+		return yield2blocks, nil
+	}
+
+	return nil, fmt.Errorf("Cannot find yield to block map of %s.", name)
 }
 
 // Adapter for Go Templates.
