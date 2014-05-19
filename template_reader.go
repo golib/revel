@@ -74,7 +74,7 @@ func (tr *TemplateReader) Parse() {
 
 			blockLines := []string{tr.consumeline()}
 			for tr.readline() {
-				if !rindent.MatchString(tr.line) {
+				if strings.TrimSpace(tr.line) != "" && !rindent.MatchString(tr.line) {
 					break
 				}
 

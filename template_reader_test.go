@@ -86,6 +86,12 @@ func TestTemplateReaderWithBlocks(t *testing.T) {
 			tr.Blocks[tr.blockName("content")])
 	}
 
+	if !strings.Contains(tr.Blocks[tr.blockName("content")], "This is a content following whitespace line") {
+		t.Errorf("Expected content block contains `%s`, but got %s",
+			"This is a content following whitespace line",
+			tr.Blocks[tr.blockName("content")])
+	}
+
 	if !strings.Contains(tr.Blocks[tr.blockName("")], "This is normal template content") {
 		t.Errorf("Expected default block contains `%s`, but got %s",
 			"This is normal template content",
