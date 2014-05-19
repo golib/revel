@@ -33,10 +33,6 @@
       <th>Name</th>
       <th>Address</th>
       <th>City, State</th>
-      <th>Check in</th>
-      <th>Check out</th>
-      <th>Confirmation number</th>
-      <th>Action</th>
     </tr>
   </thead>
   <tbody>
@@ -45,14 +41,6 @@
       <td>{{.Name}}</td>
       <td>{{.Address}}</td>
       <td>{{.City}}, {{.State}}, {{.Country}}</td>
-      <td>{{.CheckInDate.Format "2006-01-02"}}</td>
-      <td>{{.CheckOutDate.Format "2006-01-02"}}</td>
-      <td>{{.BookingId}}</td>
-      <td>
-        <form id="d{{.BookingId}}" method="POST" action="/bookings/{{.BookingId}}/cancel">
-          <a href="javascript:document.getElementById('d{{.BookingId}}').submit();">Cancel</a>
-        </form>
-      </td>
     </tr>
     {{end}}
   </tbody>
