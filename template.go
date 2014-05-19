@@ -219,8 +219,8 @@ type TemplateLoader struct {
 	// This is the set of all templates under views
 	templateSet *template.Template
 	// Map from template name to the path from whence it was loaded.
-	templatePaths  map[string]string
-	templateYields map[string]map[string]string
+	templatePaths        map[string]string
+	templateYield2Blocks map[string]map[string]string
 }
 
 func NewTemplateLoader(name string, paths []string) *TemplateLoader {
@@ -273,7 +273,7 @@ func (loader *TemplateLoader) Refresh() *Error {
 	loader.engineError = nil
 	loader.templateSet = template.New("").Funcs(TemplateHelpers) // fix go template error
 	loader.templatePaths = map[string]string{}
-	loader.templateYields = map[string]map[string]string{}
+	loader.templateYield2Blocks = map[string]map[string]string{}
 
 	// Walk through the template loader's paths and build up a template set.
 	for _, basePath := range loader.paths {
@@ -401,12 +401,14 @@ func (loader *TemplateLoader) Register(name, file string) error {
 	}
 
 	// relates yields with template lowercase name
-	loader.templateYields[lowercaseName] = tr.Yields
+	loader.templateYield2Blocks[lowercaseName] = tr.Yield2Blocks
 
 	// register all of parsed blocks
 	// NOTE: it's also includes the tr.Template treated as default block
-	for name, block := range tr.Blocks {
-		register(name, block)
+	for blockName, blockHtml := range tr.Blocks {
+		if err := register(blockName, blockHtml); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -443,12 +445,12 @@ func (loader *TemplateLoader) Template(name string) (Template, error) {
 // The name is the template's path relative to a template loader root.
 //
 // An Error is returned if there is no related yield with lowercase name.
-func (loader *TemplateLoader) Yield(name string) (map[string]string, error) {
-	if yields, ok := loader.templateYields[strings.ToLower(name)]; ok {
-		return yields, nil
+func (loader *TemplateLoader) Yield2Blocks(name string) (map[string]string, error) {
+	if yield2blocks, ok := loader.templateYield2Blocks[strings.ToLower(name)]; ok {
+		return yield2blocks, nil
 	}
 
-	return nil, fmt.Errorf("Yield %s not found.", name)
+	return nil, fmt.Errorf("Cannot find yield to block map of %s.", name)
 }
 
 // Adapter for Go Templates.
