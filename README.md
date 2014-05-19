@@ -8,6 +8,20 @@ Current Version: 0.9.1 (Mar 1, 2014)
 
 [![Build Status](https://secure.travis-ci.org/golib/revel.png?branch=master)](http://travis-ci.org/golib/revel)
 
+## New Features
+- Support app spec config file following run mode, such as *app.dev.conf*
+- New template enginer interface, which makes custom template parser esaier
+```go
+type TemplateEnginer interface {
+  Parse(s string) (*template.Template, error)
+  SetOptions(options *config.Config)
+  SetHelpers(helpers template.FuncMap)
+  WatchDir(dir os.FileInfo) bool
+  WatchFile(file string) bool
+}
+```
+- Support template layout
+
 ## Learn More
 
 [Manual, Samples, Godocs, etc](http://revel.github.io)
