@@ -1,10 +1,7 @@
 package revel
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -32,38 +29,6 @@ func (c *Controller) FlashParams() {
 	for key, vals := range c.Params.Values {
 		c.Flash.Out[key] = strings.Join(vals, ",")
 	}
-}
-
-// Render a template and capture the result
-func (c *Controller) CaptureTemplate(name string) (html template.HTML, err error) {
-	// Handle panics when rendering templates.
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			err = errors.New(fmt.Sprintf("Template Execution Panic in %s : %s\n", name, panicErr))
-			return
-		}
-	}()
-
-	// always using lowercase
-	name = strings.ToLower(name)
-
-	// Get the Template.
-	goTemplate, err := MainTemplateLoader.Template(name)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed loading template %s : %s\n", name, err.Error()))
-	}
-
-	buf := bytes.NewBuffer([]byte{})
-
-	// Internal help template variable for some purposes?
-	c.RenderArgs["RevelTemplateCaptureMode"] = true
-
-	err = goTemplate.Render(buf, c.RenderArgs)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed rendering template %s : %s\n", name, err.Error()))
-	}
-
-	return template.HTML(buf.String()), nil
 }
 
 // Render a template corresponding to the calling Controller method.
