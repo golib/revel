@@ -73,8 +73,8 @@ func (c *Controller) CaptureTemplate(name string) (html template.HTML, err error
 // For example:
 //
 //     func (c Users) ShowUser(id int) revel.Result {
-//     	 user := loadUser(id)
-//     	 return c.Render(user)
+//       user := loadUser(id)
+//       return c.Render(user)
 //     }
 //
 // This action will render views/Users/ShowUser.html, passing in an extra
@@ -110,33 +110,6 @@ func (c *Controller) RenderTemplate(name string) Result {
 	// always using lowercase
 	name = strings.ToLower(name)
 
-	// apply all yielded blocks
-	yield2blocks, err := MainTemplateLoader.Yield2Blocks(name)
-	if err == nil {
-		for yieldName, blockName := range yield2blocks {
-			blockHtml, blockErr := c.CaptureTemplate(blockName)
-
-			if blockErr != nil {
-				goTemplate, err := MainTemplateLoader.Template(name)
-				if err != nil {
-					return c.RenderError(err)
-				}
-
-				_, line, description := parseTemplateError(blockErr)
-
-				return c.RenderError(&Error{
-					Title:       "Template Execution Error",
-					Line:        line,
-					Path:        name,
-					Description: description,
-					SourceLines: goTemplate.Content(),
-				})
-			}
-
-			c.RenderArgs[yieldName] = blockHtml
-		}
-	}
-
 	// layout?
 	templateName := name
 	if layouter, ok := c.AppController.(ControllerLayouter); ok {
@@ -163,8 +136,9 @@ func (c *Controller) RenderTemplate(name string) Result {
 	}
 
 	return &RenderTemplateResult{
-		Template:   goTemplate,
-		RenderArgs: c.RenderArgs,
+		Template:     goTemplate,
+		TemplateName: name,
+		RenderArgs:   c.RenderArgs,
 	}
 }
 

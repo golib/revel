@@ -20,8 +20,9 @@ type Result interface {
 
 // Action methods return this result to request a template be rendered.
 type RenderTemplateResult struct {
-	Template   Template
-	RenderArgs map[string]interface{}
+	Template     Template // this could be layout if exists
+	TemplateName string   // of original template name, useful with error processing
+	RenderArgs   map[string]interface{}
 }
 
 func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
@@ -34,6 +35,11 @@ func (r *RenderTemplateResult) Apply(req *Request, resp *Response) {
 				r.Template.Name(), err)}.Apply(req, resp)
 		}
 	}()
+
+	if captureErr := r.renderCapture(req, resp); captureErr != nil {
+		ErrorResult{r.RenderArgs, captureErr}.Apply(req, resp)
+		return
+	}
 
 	chunked := Config.BoolDefault("results.chunked", false)
 
@@ -79,31 +85,75 @@ func (r *RenderTemplateResult) renderTemplate(req *Request, resp *Response, buf 
 	// clean rendered result
 	buf.Reset()
 
-	var templateContent []string
-	templateName, line, description := parseTemplateError(err)
-	if templateName == "" {
-		templateName = r.Template.Name()
-		templateContent = r.Template.Content()
-	} else {
-		if templateSet, err := MainTemplateLoader.Template(templateName); err == nil {
-			templateContent = templateSet.Content()
-		}
+	var (
+		content []string
+
+		name, line, description = parseTemplateError(err)
+	)
+	if name == "" {
+		name = r.Template.Name()
+		content = r.Template.Content()
+	} else if goTemplate, err := MainTemplateLoader.Template(name); err == nil {
+		content = goTemplate.Content()
 	}
 
 	compileError := &Error{
 		Title:       "Template Execution Error",
 		Line:        line,
-		Path:        templateName,
+		Path:        name,
 		Description: description,
-		SourceLines: templateContent,
+		SourceLines: content,
 	}
 
-	ERROR.Printf("Template Execution Error (in %s): %s", templateName, description)
+	ERROR.Printf("Template Execution Error (in %s): %s", name, description)
 
 	// respond as internal server error
 	resp.Status = 500
 
 	ErrorResult{r.RenderArgs, compileError}.Apply(req, resp)
+}
+
+func (r *RenderTemplateResult) renderCapture(req *Request, resp *Response) error {
+	yield2blocks, err := MainTemplateLoader.Yield2Blocks(r.TemplateName)
+	if err != nil {
+		return nil
+	}
+
+	// apply all yielded blocks to r.RenderArgs
+	for yieldName, blockName := range yield2blocks {
+		goTemplate, err := MainTemplateLoader.Template(blockName)
+		if err != nil {
+			ERROR.Println("Failed loading template block %s of %s : %s", blockName, r.TemplateName, err.Error())
+
+			continue
+		}
+
+		captureResult := CaptureTemplateResult{
+			Template:   goTemplate,
+			RenderArgs: r.RenderArgs,
+		}
+		captureResult.Apply(req, resp)
+
+		if blockErr := captureResult.Error(); blockErr != nil {
+			if goTemplate, err := MainTemplateLoader.Template(r.TemplateName); err == nil {
+				_, line, description := parseTemplateError(blockErr)
+
+				return &Error{
+					Title:       "Template Execution Error (Capture)",
+					Line:        line,
+					Path:        r.TemplateName,
+					Description: description,
+					SourceLines: goTemplate.Content(),
+				}
+			}
+
+			return blockErr
+		}
+
+		r.RenderArgs[yieldName] = captureResult.HTML()
+	}
+
+	return nil
 }
 
 type CaptureTemplateResult struct {
