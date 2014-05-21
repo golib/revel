@@ -6,7 +6,7 @@ A high productivity, full-stack web framework for the [Go language](http://www.g
 
 Current Version: 0.9.1 (Mar 1, 2014)
 
-[![Build Status](https://secure.travis-ci.org/golib/revel.png?branch=master)](http://travis-ci.org/golib/revel)
+[![Build Status](https://travis-ci.org/golib/revel.svg?branch=master)](https://travis-ci.org/golib/revel)
 
 ## New Features
 - Support app spec config file following run mode, such as *app.dev.conf*
