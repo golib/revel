@@ -112,6 +112,92 @@ func TestRenderTemplateResultWithPanic(t *testing.T) {
 	// }
 }
 
+func TestCaptureTemplatResult(t *testing.T) {
+	fakeTestApp()
+
+	resp := httptest.NewRecorder()
+
+	goTemplate, _ := MainTemplateLoader.Template("errors/403.html")
+
+	result := CaptureTemplateResult{
+		Template:   goTemplate,
+		RenderArgs: make(map[string]interface{}),
+	}
+	result.Apply(NewRequest(showRequest), NewResponse(resp))
+
+	if resp.Code != http.StatusOK {
+		t.Errorf("Expect respond status `%d`, but got `%d`", http.StatusOK, resp.Code)
+	}
+	if resp.Body.String() != "" {
+		t.Errorf("Expect empty respond body, but got `%s`", resp.Body.String())
+	}
+	if result.Error() != nil {
+		t.Errorf("Expect capture result with nil error, but got `%s`", result.Error())
+	}
+	if !strings.Contains(string(result.HTML()), "Hotels 403 Error Page") {
+		t.Errorf("Expect result contains `Hotels 403 Error Page`, but got `%s`", result.HTML())
+	}
+}
+
+func TestCaptureTemplatResultWithError(t *testing.T) {
+	fakeTestApp()
+
+	resp := httptest.NewRecorder()
+
+	goTemplate, _ := MainTemplateLoader.Template("hotels/error.html")
+
+	result := CaptureTemplateResult{
+		Template: goTemplate,
+		RenderArgs: map[string]interface{}{
+			"error":      true,
+			"NilPointer": nil,
+		},
+	}
+	result.Apply(NewRequest(showRequest), NewResponse(resp))
+
+	if resp.Code != http.StatusOK {
+		t.Errorf("Expect respond status `%d`, but got `%d`", http.StatusOK, resp.Code)
+	}
+	if resp.Body.String() != "" {
+		t.Errorf("Expect empty respond body, but got `%s`", resp.Body.String())
+	}
+	if result.Error() == nil {
+		t.Errorf("Expect capture result with error, but got `%#v`", result.Error())
+	}
+	if string(result.HTML()) != "" {
+		t.Errorf("Expect empty captured result, but got `%s`", result.HTML())
+	}
+}
+
+func TestCaptureTemplatResultWithPanic(t *testing.T) {
+	fakeTestApp()
+
+	resp := httptest.NewRecorder()
+
+	goTemplate, _ := MainTemplateLoader.Template("hotels/panic.html")
+
+	result := CaptureTemplateResult{
+		Template: goTemplate,
+		RenderArgs: map[string]interface{}{
+			"panic": true,
+		},
+	}
+	result.Apply(NewRequest(showRequest), NewResponse(resp))
+
+	if resp.Code != http.StatusOK {
+		t.Errorf("Expect respond status `%d`, but got `%d`", http.StatusOK, resp.Code)
+	}
+	if resp.Body.String() != "" {
+		t.Errorf("Expect empty respond body, but got `%s`", resp.Body.String())
+	}
+	if result.Error() == nil {
+		t.Errorf("Expect capture result with panic, but got `%#v`", result.Error())
+	}
+	if string(result.HTML()) != "" {
+		t.Errorf("Expect empty captured result, but got `%s`", result.HTML())
+	}
+}
+
 func TestRenderTextResult(t *testing.T) {
 	resp := httptest.NewRecorder()
 

@@ -1,10 +1,7 @@
 package revel
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -34,38 +31,6 @@ func (c *Controller) FlashParams() {
 	}
 }
 
-// Render a template and capture the result
-func (c *Controller) CaptureTemplate(name string) (html template.HTML, err error) {
-	// Handle panics when rendering templates.
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			err = errors.New(fmt.Sprintf("Template Execution Panic in %s : %s\n", name, panicErr))
-			return
-		}
-	}()
-
-	// always using lowercase
-	name = strings.ToLower(name)
-
-	// Get the Template.
-	goTemplate, err := MainTemplateLoader.Template(name)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed loading template %s : %s\n", name, err.Error()))
-	}
-
-	buf := bytes.NewBuffer([]byte{})
-
-	// Internal help template variable for some purposes?
-	c.RenderArgs["RevelTemplateCaptureMode"] = true
-
-	err = goTemplate.Render(buf, c.RenderArgs)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed rendering template %s : %s\n", name, err.Error()))
-	}
-
-	return template.HTML(buf.String()), nil
-}
-
 // Render a template corresponding to the calling Controller method.
 // Arguments will be added to c.RenderArgs prior to rendering the template.
 // They are keyed on their local identifier.
@@ -73,8 +38,8 @@ func (c *Controller) CaptureTemplate(name string) (html template.HTML, err error
 // For example:
 //
 //     func (c Users) ShowUser(id int) revel.Result {
-//     	 user := loadUser(id)
-//     	 return c.Render(user)
+//       user := loadUser(id)
+//       return c.Render(user)
 //     }
 //
 // This action will render views/Users/ShowUser.html, passing in an extra
@@ -110,33 +75,6 @@ func (c *Controller) RenderTemplate(name string) Result {
 	// always using lowercase
 	name = strings.ToLower(name)
 
-	// apply all yielded blocks
-	yield2blocks, err := MainTemplateLoader.Yield2Blocks(name)
-	if err == nil {
-		for yieldName, blockName := range yield2blocks {
-			blockHtml, blockErr := c.CaptureTemplate(blockName)
-
-			if blockErr != nil {
-				goTemplate, err := MainTemplateLoader.Template(name)
-				if err != nil {
-					return c.RenderError(err)
-				}
-
-				_, line, description := parseTemplateError(blockErr)
-
-				return c.RenderError(&Error{
-					Title:       "Template Execution Error",
-					Line:        line,
-					Path:        name,
-					Description: description,
-					SourceLines: goTemplate.Content(),
-				})
-			}
-
-			c.RenderArgs[yieldName] = blockHtml
-		}
-	}
-
 	// layout?
 	templateName := name
 	if layouter, ok := c.AppController.(ControllerLayouter); ok {
@@ -163,8 +101,9 @@ func (c *Controller) RenderTemplate(name string) Result {
 	}
 
 	return &RenderTemplateResult{
-		Template:   goTemplate,
-		RenderArgs: c.RenderArgs,
+		Template:     goTemplate,
+		TemplateName: name,
+		RenderArgs:   c.RenderArgs,
 	}
 }
 
