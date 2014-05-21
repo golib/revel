@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -102,6 +104,45 @@ func (r *RenderTemplateResult) renderTemplate(req *Request, resp *Response, buf 
 	resp.Status = 500
 
 	ErrorResult{r.RenderArgs, compileError}.Apply(req, resp)
+}
+
+type CaptureTemplateResult struct {
+	Template   Template
+	RenderArgs map[string]interface{}
+
+	renderedHtml  string
+	renderedError error
+}
+
+func (r *CaptureTemplateResult) Apply(req *Request, resp *Response) {
+	// Handle panics when rendering templates.
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			r.renderedError = errors.New(fmt.Sprintf("Template Execution Panic (Capture) : %s\n", panicErr))
+			return
+		}
+	}()
+
+	// Internal help template variable for some purposes?
+	r.RenderArgs["RevelTemplateCaptureMode"] = true
+
+	buf := bytes.NewBuffer([]byte{})
+
+	if err := r.Template.Render(buf, r.RenderArgs); err != nil {
+		r.renderedError = errors.New(fmt.Sprintf("Template Excution Error (Capture) : %s\n", err.Error()))
+		return
+	}
+
+	r.renderedHtml = buf.String()
+	return
+}
+
+func (r *CaptureTemplateResult) HTML() template.HTML {
+	return template.HTML(r.renderedHtml)
+}
+
+func (r *CaptureTemplateResult) Error() error {
+	return r.renderedError
 }
 
 type RenderTextResult struct {
