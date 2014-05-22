@@ -65,7 +65,14 @@ var (
 			if renderArgs[key] == nil {
 				renderArgs[key] = []interface{}{value}
 			} else {
-				renderArgs[key] = append(renderArgs[key].([]interface{}), value)
+				args := renderArgs[key].([]interface{})
+				for _, arg := range args {
+					if arg == value {
+						return template.HTML("")
+					}
+				}
+
+				renderArgs[key] = append(args, value)
 			}
 			return template.HTML("")
 		},
