@@ -35,6 +35,25 @@ func (f Flash) Success(msg string, args ...interface{}) {
 	}
 }
 
+// Keep messages of the Flash cookie
+func (f Flash) Keep(names ...string) {
+	if len(names) > 0 {
+		for _, name := range names {
+			if data, ok := f.Data[name]; ok {
+				if _, has := f.Out[name]; !has {
+					f.Out[name] = data
+				}
+			}
+		}
+	} else {
+		for key, value := range f.Data {
+			if _, has := f.Out[key]; !has {
+				f.Out[key] = value
+			}
+		}
+	}
+}
+
 // FlashFilter is a Revel Filter that retrieves and sets the flash cookie.
 // Within Revel, it is available as a Flash attribute on Controller instances.
 // The name of the Flash cookie is set as CookiePrefix + "_FLASH".
