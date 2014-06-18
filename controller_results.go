@@ -12,6 +12,32 @@ import (
 	"time"
 )
 
+func (c *Controller) LayoutName() string {
+	layoutName := ""
+
+	layouter, ok := c.AppController.(ControllerLayouter)
+	if !ok {
+		return layoutName
+	}
+
+	layouts := layouter.Layout()
+
+	// is there an action layout defined?
+	if layout, ok := layouts[c.MethodName]; ok {
+		layoutName = layout
+
+		// is there an method:action layout defined?
+	} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
+		layoutName = layout
+
+		// is there an wildcard layout defined?
+	} else if layout, ok := layouts["*"]; ok {
+		layoutName = layout
+	}
+
+	return strings.TrimSpace(layoutName)
+}
+
 // Perform a message lookup for the given message name using the given arguments
 // using the current language defined for this controller.
 //
@@ -78,21 +104,8 @@ func (c *Controller) RenderTemplate(name string) Result {
 
 	// layout?
 	templateName := name
-	if layouter, ok := c.AppController.(ControllerLayouter); ok {
-		layouts := layouter.Layout()
-
-		// is there an action layout defined?
-		if layout, ok := layouts[c.MethodName]; ok {
-			templateName = layout
-
-			// is there an method:action layout defined?
-		} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
-			templateName = layout
-
-			// is there an wildcard layout defined?
-		} else if layout, ok := layouts["*"]; ok {
-			templateName = layout
-		}
+	if layoutName := c.LayoutName(); layoutName != "" {
+		templateName = layoutName
 	}
 
 	// Get the Template.
@@ -132,21 +145,8 @@ func (c *Controller) CaptureTemplate(name string) template.HTML {
 
 	// layout?
 	templateName := name
-	if layouter, ok := c.AppController.(ControllerLayouter); ok {
-		layouts := layouter.Layout()
-
-		// is there an action layout defined?
-		if layout, ok := layouts[c.MethodName]; ok {
-			templateName = layout
-
-			// is there an method:action layout defined?
-		} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
-			templateName = layout
-
-			// is there an wildcard layout defined?
-		} else if layout, ok := layouts["*"]; ok {
-			templateName = layout
-		}
+	if layoutName := c.LayoutName(); layoutName != "" {
+		templateName = layoutName
 	}
 
 	// Get the Template.
