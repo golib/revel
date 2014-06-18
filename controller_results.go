@@ -2,6 +2,7 @@ package revel
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -10,6 +11,32 @@ import (
 	"strings"
 	"time"
 )
+
+func (c *Controller) LayoutName() string {
+	layoutName := ""
+
+	layouter, ok := c.AppController.(ControllerLayouter)
+	if !ok {
+		return layoutName
+	}
+
+	layouts := layouter.Layout()
+
+	// is there an action layout defined?
+	if layout, ok := layouts[c.MethodName]; ok {
+		layoutName = layout
+
+		// is there an method:action layout defined?
+	} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
+		layoutName = layout
+
+		// is there an wildcard layout defined?
+	} else if layout, ok := layouts["*"]; ok {
+		layoutName = layout
+	}
+
+	return strings.TrimSpace(layoutName)
+}
 
 // Perform a message lookup for the given message name using the given arguments
 // using the current language defined for this controller.
@@ -77,21 +104,8 @@ func (c *Controller) RenderTemplate(name string) Result {
 
 	// layout?
 	templateName := name
-	if layouter, ok := c.AppController.(ControllerLayouter); ok {
-		layouts := layouter.Layout()
-
-		// is there an action layout defined?
-		if layout, ok := layouts[c.MethodName]; ok {
-			templateName = layout
-
-			// is there an method:action layout defined?
-		} else if layout, ok := layouts[c.Request.Method+":"+c.MethodName]; ok {
-			templateName = layout
-
-			// is there an wildcard layout defined?
-		} else if layout, ok := layouts["*"]; ok {
-			templateName = layout
-		}
+	if layoutName := c.LayoutName(); layoutName != "" {
+		templateName = layoutName
 	}
 
 	// Get the Template.
@@ -105,6 +119,89 @@ func (c *Controller) RenderTemplate(name string) Result {
 		TemplateName: name,
 		RenderArgs:   c.RenderArgs,
 	}
+}
+
+// Capture a template corresponding to the calling Controller method.
+//
+// For example:
+//
+//     func (c Users) ShowUser(id int) revel.Result {
+//       user := loadUser(id)
+//       return c.Capture()
+//     }
+//
+// This action will render views/Users/ShowUser.html,
+// capture the result and return the result as template.HTML.
+func (c *Controller) Capture(name string) template.HTML {
+	return c.CaptureTemplate(c.Name + "/" + c.MethodType.Name + "." + c.Request.Format)
+}
+
+// A less magical way to capture a template.
+// Renders the given template, using the current RenderArgs.
+// TODO: refactor this with RenderTemplateResult.renderCapture!
+func (c *Controller) CaptureTemplate(name string) template.HTML {
+	// always using lowercase
+	name = strings.ToLower(name)
+
+	// layout?
+	templateName := name
+	if layoutName := c.LayoutName(); layoutName != "" {
+		templateName = layoutName
+	}
+
+	// Get the Template.
+	goTemplate, err := MainTemplateLoader.Template(templateName)
+	if err != nil {
+		ERROR.Printf("Load capture template %s with error : %s\n", templateName, err)
+
+		return ""
+	}
+
+	// apply blocks
+	yield2blocks, err := MainTemplateLoader.Yield2Blocks(templateName)
+	if err != nil {
+		ERROR.Printf("Load capture template blocks %s with error : %s\n", templateName, err)
+
+		return ""
+	}
+
+	// apply all yielded blocks to r.RenderArgs
+	for yieldName, blockName := range yield2blocks {
+		blockTemplate, err := MainTemplateLoader.Template(blockName)
+		if err != nil {
+			ERROR.Println("Failed loading template block %s of %s : %s", blockName, templateName, err.Error())
+
+			continue
+		}
+
+		captureResult := CaptureTemplateResult{
+			Template:   blockTemplate,
+			RenderArgs: c.RenderArgs,
+		}
+		captureResult.Apply(c.Request, c.Response)
+
+		if blockErr := captureResult.Error(); blockErr != nil {
+			ERROR.Printf("Render capture block template %s with error : %s\n", blockName, err)
+
+			return ""
+		}
+
+		c.RenderArgs[yieldName] = captureResult.HTML()
+	}
+
+	captureResult := &CaptureTemplateResult{
+		Template:   goTemplate,
+		RenderArgs: c.RenderArgs,
+	}
+	captureResult.Apply(c.Request, c.Response)
+
+	if captureErr := captureResult.Error(); captureErr != nil {
+		ERROR.Printf("Capture template %s with error : %s\n", templateName, captureErr)
+
+		return ""
+	}
+
+	return captureResult.HTML()
 }
 
 // Render an error in request.Format

@@ -81,7 +81,7 @@ func (tr *TemplateReader) Parse() {
 				blockLines = append(blockLines, tr.consumeline())
 			}
 
-			tr.Blocks[blockName] = strings.Join(blockLines, "\n")
+			tr.Blocks[blockName] = strings.Join(blockLines, "")
 			tr.Yield2Blocks[yieldName] = blockName
 		default:
 			line := tr.consumeline()
@@ -100,7 +100,7 @@ func (tr *TemplateReader) Parse() {
 	}
 
 	// default block
-	tr.Template = strings.Join(lines, "\n")
+	tr.Template = strings.Join(lines, "")
 
 	// trick of default block
 	yieldName := tr.yieldName("")
