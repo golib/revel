@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"code.google.com/p/go.net/websocket"
 )
 
 type Result interface {
@@ -368,8 +370,14 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 		return
 	}
 
-	resp.WriteHeader(status, contentType)
-	buf.WriteTo(resp.Out)
+	// need to check if we are on a websocket here
+	// net/http panics if we write to a hijacked connection
+	if req.Method != "WS" {
+		resp.WriteHeader(status, contentType)
+		b.WriteTo(resp.Out)
+	} else {
+		websocket.Message.Send(req.Websocket, fmt.Sprint(revelError))
+	}
 }
 
 type ContentDisposition string
