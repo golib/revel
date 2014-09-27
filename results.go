@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
@@ -398,16 +399,19 @@ type BinaryResult struct {
 func (r *BinaryResult) Apply(req *Request, resp *Response) {
 	disposition := string(r.Delivery)
 	if r.Name != "" {
-		disposition += fmt.Sprintf("; filename=%s", r.Name)
+		disposition += fmt.Sprintf(`; filename="%s"`, strings.Replace(r.Name, `"`, `\"`, -1))
 	}
 	resp.Out.Header().Set("Content-Disposition", disposition)
 
 	// If we have a ReadSeeker, delegate to http.ServeContent
 	if rs, ok := r.Reader.(io.ReadSeeker); ok {
 		// http.ServeContent doesn't know about response.ContentType, so we set the respective header.
-		if resp.ContentType != "" {
-			resp.Out.Header().Set("Content-Type", resp.ContentType)
+		contentType := resp.ContentType
+		if contentType == "" {
+			contentType = ContentTypeByFilename(r.Name)
 		}
+
+		resp.Out.Header().Set("Content-Type", contentType)
 		http.ServeContent(resp.Out, req.Request, r.Name, r.ModTime, rs)
 	} else {
 		// Else, do a simple io.Copy.
