@@ -18,7 +18,7 @@ import (
 var importErrorPattern = regexp.MustCompile("cannot find package \"([^\"]+)\"")
 
 // Build the app:
-// 1. Generate the the main.go file.
+// 1. Generate the main.go file.
 // 2. Run the appropriate "go build" command.
 // Requires that revel.Init has been called previously.
 // Returns the path to the built binary, and an error if there was a problem building it.
@@ -60,6 +60,7 @@ func Build() (app *App, compileError *revel.Error) {
 	if err != nil {
 		revel.ERROR.Fatalln("Failure importing", revel.ImportPath)
 	}
+
 	binName := path.Join(pkg.BinDir, path.Base(revel.BasePath))
 	if runtime.GOOS == "windows" {
 		binName += ".exe"
@@ -75,12 +76,14 @@ func Build() (app *App, compileError *revel.Error) {
 			"-tags", buildTags,
 			"-o", binName, path.Join(revel.ImportPath, "app", "tmp"))
 		revel.TRACE.Println("Exec:", buildCmd.Args)
+
 		output, err := buildCmd.CombinedOutput()
 
 		// If the build succeeded, we're done.
 		if err == nil {
 			return NewApp(binName), nil
 		}
+
 		revel.ERROR.Println(string(output))
 
 		// See if it was an import error that we can go get.
@@ -107,7 +110,9 @@ func Build() (app *App, compileError *revel.Error) {
 
 		// Success getting the import, attempt to build again.
 	}
+
 	revel.ERROR.Fatalf("Not reachable")
+
 	return nil, nil
 }
 
@@ -123,11 +128,10 @@ func getAppVersion() string {
 	}
 
 	if gitPath, err := exec.LookPath("git"); err == nil {
-		var gitdir = "--git-dir=" + path.Join(revel.BasePath, ".git")
-		gitCmd := exec.Command(gitPath, gitdir, "describe", "--always", "--dirty")
+		gitCmd := exec.Command(gitPath, "describe", "--always", "--dirty")
 		revel.TRACE.Println("Exec:", gitCmd.Args)
-		output, err := gitCmd.Output()
 
+		output, err := gitCmd.Output()
 		if err != nil {
 			revel.WARN.Println("Cannot determine git repository version:", err)
 			return ""
