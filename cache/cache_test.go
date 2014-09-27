@@ -204,25 +204,25 @@ func testAdd(t *testing.T, newCache cacheFactory) {
 }
 
 func testGetMulti(t *testing.T, newCache cacheFactory) {
-	var err error
 	cache := newCache(t, time.Hour)
 
-	m := map[string]interface{}{
+	data := map[string]interface{}{
 		"str": "foo",
 		"num": 42,
 		"foo": struct{ Bar string }{"baz"},
 	}
 
 	var keys []string
-	for key, value := range m {
+	for key, value := range data {
 		keys = append(keys, key)
-		if err = cache.Set(key, value, DEFAULT); err != nil {
+
+		if err := cache.Set(key, value, DEFAULT); err != nil {
 			t.Errorf("Error setting a value: %s", err)
 		}
 	}
 
-	var g Getter
-	if g, err = cache.GetMulti(keys...); err != nil {
+	result, err := cache.GetMulti(keys...)
+	if err != nil {
 		t.Errorf("Error in get-multi: %s", err)
 	}
 
