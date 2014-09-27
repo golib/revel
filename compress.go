@@ -3,6 +3,7 @@ package revel
 import (
 	"compress/gzip"
 	"compress/zlib"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ var compressableMimes = [...]string{
 	"text/html",
 	"text/xml",
 	"text/css",
+	"application/json",
 	"application/xml",
 	"application/xhtml+xml",
 	"application/rss+xml",
@@ -26,7 +28,9 @@ var compressableMimes = [...]string{
 }
 
 type WriteFlusher interface {
-	Write([]byte) (int, error)
+	io.Writer
+	io.Closer
+
 	Flush() error
 }
 
@@ -35,12 +39,23 @@ type CompressResponseWriter struct {
 	compressWriter  WriteFlusher
 	compressionType string
 	headersWritten  bool
+	parentNotify    <-chan bool
+	closeNotify     chan bool
+	closed          bool
 }
 
 func CompressFilter(c *Controller, fc []Filter) {
-	writer := CompressResponseWriter{c.Response.Out, nil, "", false}
-	writer.DetectCompressionType(c.Request, c.Response)
-	c.Response.Out = &writer
+	if Config.BoolDefault("results.compressed", false) {
+		writer := CompressResponseWriter{c.Response.Out, nil, "", false, nil, make(chan bool, 1), false}
+		writer.DetectCompressionType(c.Request, c.Response)
+
+		w, ok := c.Response.Out.(http.CloseNotifier)
+		if ok {
+			writer.parentNotify = w.CloseNotify()
+		}
+
+		c.Response.Out = &writer
+	}
 
 	fc[0](c, fc[1:])
 }
@@ -51,12 +66,14 @@ func (c *CompressResponseWriter) prepareHeaders() {
 		responseMime = strings.TrimSpace(strings.SplitN(responseMime, ";", 2)[0])
 		shouldEncode := false
 
-		for _, compressableMime := range compressableMimes {
-			if responseMime == compressableMime {
-				shouldEncode = true
-				c.Header().Set("Content-Encoding", c.compressionType)
-				c.Header().Del("Content-Length")
-				break
+		if c.Header().Get("Content-Encoding") == "" {
+			for _, compressableMime := range compressableMimes {
+				if responseMime == compressableMime {
+					shouldEncode = true
+					c.Header().Set("Content-Encoding", c.compressionType)
+					c.Header().Del("Content-Length")
+					break
+				}
 			}
 		}
 
@@ -74,17 +91,59 @@ func (c *CompressResponseWriter) WriteHeader(status int) {
 }
 
 func (c *CompressResponseWriter) Write(b []byte) (int, error) {
+	// Abort if parent has been closed
+	if c.parentNotify != nil {
+		select {
+		case <-c.parentNotify:
+			return 0, io.ErrClosedPipe
+		default:
+		}
+	}
+
+	// Abort if we ourselves have been closed
+	if c.closed {
+		return 0, io.ErrClosedPipe
+	}
+
 	if !c.headersWritten {
 		c.prepareHeaders()
 		c.headersWritten = true
 	}
 
 	if c.compressionType != "" {
-		defer c.compressWriter.Flush()
 		return c.compressWriter.Write(b)
-	} else {
-		return c.ResponseWriter.Write(b)
 	}
+
+	return c.ResponseWriter.Write(b)
+}
+
+func (c *CompressResponseWriter) Close() error {
+	if c.compressionType == "" {
+		c.compressWriter.Close()
+	}
+
+	if w, ok := c.ResponseWriter.(io.Closer); ok {
+		w.Close()
+	}
+
+	// Non-blocking write to the closenotifier, if we for some reason should
+	// get called multiple times
+	select {
+	case c.closeNotify <- true:
+	default:
+	}
+
+	c.closed = true
+
+	return nil
+}
+
+func (c CompressResponseWriter) CloseNotify() <-chan bool {
+	if c.parentNotify != nil {
+		return c.parentNotify
+	}
+
+	return c.closeNotify
 }
 
 func (c *CompressResponseWriter) DetectCompressionType(req *Request, resp *Response) {
