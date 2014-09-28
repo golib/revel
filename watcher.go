@@ -57,9 +57,21 @@ func (w *Watcher) Listen(listener Listener, roots ...string) {
 
 	// Walk through all files / directories under the root, adding each to watcher.
 	for _, p := range roots {
+		// handle the file symlink?
+		f, err := os.Lstat(p)
+		if err == nil && f.Mode()&os.ModeSymlink == os.ModeSymlink {
+			realPath, err := filepath.EvalSymlinks(p)
+			if err != nil {
+				ERROR.Println("Failed to resolve symlink ", p, " : ", err)
+				continue
+			}
+
+			p = realPath
+		}
+
 		fi, err := os.Stat(p)
 		if err != nil {
-			ERROR.Println("Failed to stat watched path", p, ":", err)
+			ERROR.Println("Failed to watch path ", p, " : ", err)
 			continue
 		}
 
@@ -67,17 +79,42 @@ func (w *Watcher) Listen(listener Listener, roots ...string) {
 		if !fi.IsDir() {
 			err = watcher.Watch(p)
 			if err != nil {
-				ERROR.Println("Failed to watch", p, ":", err)
+				ERROR.Println("Failed to watch path ", p, " : ", err)
 			}
-			TRACE.Println("Watching:", p)
+
+			TRACE.Println("Watching : ", p)
 			continue
 		}
 
 		// Else, walk the directory tree.
-		filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+		watchWalker := func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				ERROR.Println("Error walking path:", err)
+				ERROR.Println("Error walking path ", path, " : ", err)
 				return nil
+			}
+
+			// is it a symlinked template?
+			fs, err := os.Lstat(path)
+			if err == nil && fs.Mode()&os.ModeSymlink == os.ModeSymlink {
+				TRACE.Println("Watcher symlink : ", path)
+
+				// lookup the actual target & check for goodness
+				targetPath, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					ERROR.Println("Failed to resolve symlink ", path, " : ", err)
+					return err
+				}
+
+				targetInfo, err := os.Stat(targetPath)
+				if err != nil {
+					ERROR.Println("Failed to stat path ", path, " : ", err)
+					return err
+				}
+
+				// set the template path to the target of the symlink
+				path = targetPath
+				info = targetInfo
+				filepath.Walk(path, watcherWalker)
 			}
 
 			if info.IsDir() {
@@ -91,10 +128,13 @@ func (w *Watcher) Listen(listener Listener, roots ...string) {
 				if err != nil {
 					ERROR.Println("Failed to watch", path, ":", err)
 				}
-				TRACE.Println("Watching:", path)
 			}
+
 			return nil
-		})
+		}
+
+		// Else, walk the directory tree.
+		filepath.Walk(p, watchWalker)
 	}
 
 	w.watchers = append(w.watchers, watcher)
