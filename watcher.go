@@ -86,8 +86,10 @@ func (w *Watcher) Listen(listener Listener, roots ...string) {
 			continue
 		}
 
+		var watchWalker func(path string, info os.FileInfo, err error) error
+
 		// Else, walk the directory tree.
-		watchWalker := func(path string, info os.FileInfo, err error) error {
+		watchWalker = func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				ERROR.Println("Error walking path ", path, " : ", err)
 				return nil
@@ -114,7 +116,7 @@ func (w *Watcher) Listen(listener Listener, roots ...string) {
 				// set the template path to the target of the symlink
 				path = targetPath
 				info = targetInfo
-				filepath.Walk(path, watcherWalker)
+				filepath.Walk(path, watchWalker)
 			}
 
 			if info.IsDir() {
