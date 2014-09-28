@@ -1,13 +1,15 @@
 package revel
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"code.google.com/p/go.net/websocket"
 )
 
 var (
@@ -39,11 +41,20 @@ func handleInternal(w http.ResponseWriter, r *http.Request, ws *websocket.Conn) 
 		resp = NewResponse(w)
 		c    = NewController(req, resp)
 	)
+
 	req.Websocket = ws
 
 	Filters[0](c, Filters[1:])
+
 	if c.Result != nil {
 		c.Result.Apply(req, resp)
+	} else if c.Response.Status != 0 {
+		c.Response.Out.WriteHeader(c.Response.Status)
+	}
+
+	// try to close the Writer
+	if w, ok := resp.Out.(io.Closer); ok {
+		w.Close()
 	}
 }
 
