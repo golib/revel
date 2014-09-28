@@ -375,7 +375,8 @@ func (r ErrorResult) Apply(req *Request, resp *Response) {
 	// net/http panics if we write to a hijacked connection
 	if req.Method != "WS" {
 		resp.WriteHeader(status, contentType)
-		b.WriteTo(resp.Out)
+
+		buf.WriteTo(resp.Out)
 	} else {
 		websocket.Message.Send(req.Websocket, fmt.Sprint(revelError))
 	}

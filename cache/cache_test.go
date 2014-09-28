@@ -227,17 +227,17 @@ func testGetMulti(t *testing.T, newCache cacheFactory) {
 	}
 
 	var str string
-	if err = g.Get("str", &str); err != nil || str != "foo" {
+	if err = result.Get("str", &str); err != nil || str != "foo" {
 		t.Errorf("Error getting str: %s / %s", err, str)
 	}
 
 	var num int
-	if err = g.Get("num", &num); err != nil || num != 42 {
+	if err = result.Get("num", &num); err != nil || num != 42 {
 		t.Errorf("Error getting num: %s / %v", err, num)
 	}
 
 	var foo struct{ Bar string }
-	if err = g.Get("foo", &foo); err != nil || foo.Bar != "baz" {
+	if err = result.Get("foo", &foo); err != nil || foo.Bar != "baz" {
 		t.Errorf("Error getting foo: %s / %v", err, foo)
 	}
 }

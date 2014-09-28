@@ -181,7 +181,7 @@ func HttpMethodOverrideFilter(c *Controller, fc []Filter) {
 				c.Response.Status = http.StatusMethodNotAllowed
 				c.Result = c.RenderError(&Error{
 					Title:       http.StatusText(http.StatusMethodNotAllowed),
-					Description: "Request method " + _method + " is not supported (supports " + strings.Join(verbs, ", ") + ").",
+					Description: "Request method " + _method + " is not supported.",
 				})
 
 				return

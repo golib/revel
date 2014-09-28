@@ -16,7 +16,7 @@ type RedisCache struct {
 func NewRedisCache(host string, password string, defaultExpiration time.Duration) RedisCache {
 	var pool = &redis.Pool{
 		MaxIdle:     5,
-		MaxActive:   7 * 24 * time.Hour,
+		MaxActive:   int(7 * 24 * time.Hour),
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
 			// redis protocol
@@ -142,8 +142,8 @@ func (c RedisCache) GetMulti(keys ...string) (Getter, error) {
 	for i, key := range keys {
 		key2val[key] = nil
 
-		if value, ok := items[i]; ok {
-			val, ok := value.([]byte)
+		if i < len(items) {
+			val, ok := items[i].([]byte)
 			if ok {
 				key2val[key] = val
 			}
@@ -186,7 +186,7 @@ func (c RedisCache) Increment(key string, delta uint64) (uint64, error) {
 		return 0, err
 	}
 
-	var result int64 = valInt64 + delta
+	var result int64 = valInt64 + int64(delta)
 	if _, err := conn.Do("SET", key, result); err != nil {
 		return 0, err
 	}
@@ -261,7 +261,7 @@ func (c RedisCache) invoke(f func(string, ...interface{}) (interface{}, error),
 	return err
 }
 
-func exists(conn redis.Conn, key string) bool {
+func exists(conn redis.Conn, key string) (bool, error) {
 	return redis.Bool(conn.Do("EXISTS", key))
 }
 

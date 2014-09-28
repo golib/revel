@@ -105,7 +105,7 @@ func (t *TestSuite) MakeMultipartRequest(method string, path string, fields map[
 	}
 	w.Close() //adds the terminating boundary
 
-	req, err := http.NewRequest(method, t.BaseUrl()+path, &b)
+	req, err := http.NewRequest(method, t.BaseUrl()+path, &buf)
 	if err != nil {
 		panic(err)
 	}
