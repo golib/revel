@@ -204,40 +204,40 @@ func testAdd(t *testing.T, newCache cacheFactory) {
 }
 
 func testGetMulti(t *testing.T, newCache cacheFactory) {
-	var err error
 	cache := newCache(t, time.Hour)
 
-	m := map[string]interface{}{
+	data := map[string]interface{}{
 		"str": "foo",
 		"num": 42,
 		"foo": struct{ Bar string }{"baz"},
 	}
 
 	var keys []string
-	for key, value := range m {
+	for key, value := range data {
 		keys = append(keys, key)
-		if err = cache.Set(key, value, DEFAULT); err != nil {
+
+		if err := cache.Set(key, value, DEFAULT); err != nil {
 			t.Errorf("Error setting a value: %s", err)
 		}
 	}
 
-	var g Getter
-	if g, err = cache.GetMulti(keys...); err != nil {
+	result, err := cache.GetMulti(keys...)
+	if err != nil {
 		t.Errorf("Error in get-multi: %s", err)
 	}
 
 	var str string
-	if err = g.Get("str", &str); err != nil || str != "foo" {
+	if err = result.Get("str", &str); err != nil || str != "foo" {
 		t.Errorf("Error getting str: %s / %s", err, str)
 	}
 
 	var num int
-	if err = g.Get("num", &num); err != nil || num != 42 {
+	if err = result.Get("num", &num); err != nil || num != 42 {
 		t.Errorf("Error getting num: %s / %v", err, num)
 	}
 
 	var foo struct{ Bar string }
-	if err = g.Get("foo", &foo); err != nil || foo.Bar != "baz" {
+	if err = result.Get("foo", &foo); err != nil || foo.Bar != "baz" {
 		t.Errorf("Error getting foo: %s / %v", err, foo)
 	}
 }

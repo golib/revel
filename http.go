@@ -2,12 +2,13 @@ package revel
 
 import (
 	"bytes"
-	"code.google.com/p/go.net/websocket"
 	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+
+	"code.google.com/p/go.net/websocket"
 )
 
 type Request struct {
@@ -147,4 +148,46 @@ func ResolveAcceptLanguage(req *http.Request) AcceptLanguages {
 
 	sort.Sort(acceptLanguages)
 	return acceptLanguages
+}
+
+func CanHttpMethodOverride(method string) bool {
+	// allowed http verbs.
+	httpVerbs := map[string]bool{
+		"POST":    true,
+		"HEAD":    true,
+		"PUT":     true,
+		"PATCH":   true,
+		"DELETE":  true,
+		"TRACE":   true,
+		"OPTIONS": true,
+		"CONNECT": true,
+	}
+
+	return httpVerbs[strings.ToUpper(method)]
+}
+
+// Override allowed http methods via post form _method param
+func HttpMethodOverrideFilter(c *Controller, fc []Filter) {
+
+	method := strings.ToUpper(c.Request.Request.Method)
+
+	if method == "POST" {
+		_method := strings.ToUpper(c.Request.Request.PostFormValue("_method"))
+
+		if _method != "" {
+			if CanHttpMethodOverride(_method) {
+				c.Request.Request.Method = _method
+			} else {
+				c.Response.Status = http.StatusMethodNotAllowed
+				c.Result = c.RenderError(&Error{
+					Title:       http.StatusText(http.StatusMethodNotAllowed),
+					Description: "Request method " + _method + " is not supported.",
+				})
+
+				return
+			}
+		}
+	}
+
+	fc[0](c, fc[1:]) // Execute the next filter stage.
 }

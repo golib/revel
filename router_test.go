@@ -69,6 +69,16 @@ var routeTestCases = map[string]*Route{
 		Action:      ":controller.:action",
 		FixedParams: []string{},
 	},
+
+	`GET / Application.Index("Test", "Test2")`: &Route{
+		Method: "GET",
+		Path:   "/",
+		Action: "Application.Index",
+		FixedParams: []string{
+			"Test",
+			"Test2",
+		},
+	},
 }
 
 // Run the test cases above.
@@ -94,6 +104,7 @@ func TestComputeRoute(t *testing.T) {
 const TEST_ROUTES = `
 # This is a comment
 GET   /                          Application.Index
+GET   /test/                     Application.Index("Test", "Test2")
 GET   /app/:id/                  Application.Show
 POST  /app/:id                   Application.Save
 PATCH /app/:id/                  Application.Update
@@ -112,6 +123,16 @@ var routeMatchTestCases = map[*http.Request]*RouteMatch{
 		ControllerName: "Application",
 		MethodName:     "Index",
 		FixedParams:    []string{},
+		Params:         map[string][]string{},
+	},
+
+	&http.Request{
+		Method: "GET",
+		URL:    &url.URL{Path: "/test/"},
+	}: &RouteMatch{
+		ControllerName: "Application",
+		MethodName:     "Index",
+		FixedParams:    []string{"Test", "Test2"},
 		Params:         map[string][]string{},
 	},
 
@@ -198,6 +219,28 @@ var routeMatchTestCases = map[*http.Request]*RouteMatch{
 		Action:         "404",
 		FixedParams:    []string{},
 		Params:         map[string][]string{},
+	},
+
+	&http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/app/123"},
+		Header: http.Header{"X-Http-Method-Override": []string{"PATCH"}},
+	}: &RouteMatch{
+		ControllerName: "Application",
+		MethodName:     "Update",
+		FixedParams:    []string{},
+		Params:         map[string][]string{"id": {"123"}},
+	},
+
+	&http.Request{
+		Method: "GET",
+		URL:    &url.URL{Path: "/app/123"},
+		Header: http.Header{"X-Http-Method-Override": []string{"PATCH"}},
+	}: &RouteMatch{
+		ControllerName: "Application",
+		MethodName:     "Show",
+		FixedParams:    []string{},
+		Params:         map[string][]string{"id": {"123"}},
 	},
 }
 

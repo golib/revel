@@ -3,7 +3,6 @@ package revel
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/robfig/pathtree"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/robfig/pathtree"
 )
 
 type Route struct {
@@ -44,7 +45,10 @@ type arg struct {
 func NewRoute(method, path, action, fixedArgs, routesPath string, line int) (r *Route) {
 	// Handle fixed arguments
 	argsReader := strings.NewReader(fixedArgs)
+
 	csv := csv.NewReader(argsReader)
+	csv.TrimLeadingSpace = true
+
 	fargs, err := csv.Read()
 	if err != nil && err != io.EOF {
 		ERROR.Printf("Invalid fixed parameters (%v): for string '%v'", err.Error(), fixedArgs)
@@ -91,6 +95,16 @@ type Router struct {
 var notFound = &RouteMatch{Action: "404"}
 
 func (router *Router) Route(req *http.Request) *RouteMatch {
+	// Override method if set in header
+	if req.Method == "POST" {
+		if method := req.Header.Get("X-HTTP-Method-Override"); method != "" {
+			method = strings.ToUpper(method)
+			if CanHttpMethodOverride(method) {
+				req.Method = method
+			}
+		}
+	}
+
 	leaf, expansions := router.Tree.Find(treePath(req.Method, req.URL.Path))
 	if leaf == nil {
 		return nil
@@ -269,7 +283,7 @@ func routeError(err error, routesPath, content string, n int) *Error {
 	if content == "" {
 		contentBytes, err := ioutil.ReadFile(routesPath)
 		if err != nil {
-			ERROR.Println("Failed to read route file %s: %s", routesPath, err)
+			ERROR.Printf("Failed to read route file %s: %s\n", routesPath, err)
 		} else {
 			content = string(contentBytes)
 		}
@@ -428,7 +442,7 @@ func RouterFilter(c *Controller, fc []Filter) {
 	// Figure out the Controller/Action
 	var route *RouteMatch = MainRouter.Route(c.Request.Request)
 	if route == nil {
-		c.Result = c.NotFound("No matching route found")
+		c.Result = c.NotFound("No matching route found : " + c.Request.RequestURI)
 		return
 	}
 
